@@ -90,7 +90,10 @@ class RmiService extends EventEmitter
         console.log "#{@host}:#{@port} receive request..."
         console.log JSON.stringify(req.body)
         if(req.body.type is 'retrive')
-            objstr = @serverObj[req.body.objName]
+            obj = @serverObj
+            if req.body.objName?
+                obj = @serverObj[req.body.objName]
+            objstr = JSON.stringify(obj)
             res.write(objstr)
             res.end()
             return
@@ -106,8 +109,7 @@ class RmiService extends EventEmitter
             return
 
     createSkeleton: (endPoint, obj)->
-        objDesc = @serializeObject(obj)
-        @serverObj[endPoint] = JSON.stringify(objDesc)
+        @serverObj[endPoint] = @serializeObject(obj)
 
     serializeObject : (obj)->
         if obj? and obj.__r_type?
