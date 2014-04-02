@@ -1,0 +1,34 @@
+{
+  "name": "nodermi",
+  "version": "0.0.0",
+  "description": "rmi for node",
+  "main": "lib/main.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "grunt": "~0.4.4",
+    "grunt-contrib-coffee": "~0.10.1",
+    "lodash": "~2.4.1",
+    "express": "~3.5.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "grunt"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bladepan/nodermi.git"
+  },
+  "keywords": [
+    "rmi",
+    "node",
+    "remote"
+  ],
+  "author": "Pan",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bladepan/nodermi/issues"
+  },
+  "homepage": "https://github.com/bladepan/nodermi"
+}
