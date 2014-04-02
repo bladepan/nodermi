@@ -14,7 +14,7 @@
   },
   "devDependencies": {},
   "scripts": {
-    "install" : "grunt"
+    "install" : "grunt",
     "test": "grunt"
   },
   "repository": {
