@@ -51,10 +51,11 @@
 #   
 #   response
 #   {
-#       error : if error
+#       error : if error      
 #       
 #   }
-#   
+#  descriptors only live in transmission layer
+#  __r_host and __r_port are leave out if it is the local object from the server
 #
 http           = require 'http'   
 {EventEmitter} = require('events')
@@ -68,7 +69,7 @@ class RmiService extends EventEmitter
         @sequence = 42
         @serverObj = {}
         @methods = {}        
-        
+        @objects = {}
         @server = express()
         #parse the body
         @server.use(express.urlencoded())
@@ -93,7 +94,8 @@ class RmiService extends EventEmitter
             obj = @serverObj
             if req.body.objName?
                 obj = @serverObj[req.body.objName]
-            objstr = JSON.stringify(obj)
+            serialized = @serializeObject(obj)
+            objstr = JSON.stringify(serialized)
             res.write(objstr)
             res.end()
             return
@@ -103,71 +105,118 @@ class RmiService extends EventEmitter
                 return @noSuchMethod(res)
             args = []
             for arg in req.body.args
-                remoteObj = @parseRemoteObj(arg)
+                remoteObj = @parseRemoteObj(arg,{host:req.body.host, port:req.body.port}, {})
                 args.push(remoteObj)               
             method.method.apply(method.obj, args)
+            res.end()
             return
 
     createSkeleton: (endPoint, obj)->
-        @serverObj[endPoint] = @serializeObject(obj)
+        @serverObj[endPoint] = obj
 
+    #TODO add support for cyclic objects
     serializeObject : (obj)->
-        if obj? and obj.__r_type?
-            return @serializeForRemoteTypes(obj)
-        if typeof obj isnt 'function' and typeof obj isnt 'object'
-            return obj
-        objDesc = {
-            __r_id : @getSequence()
-            __r_host : @host
-            __r_port : @port
-        }
-        if typeof obj is 'function'
-            objDesc.__r_type = 'funcDes'
-            @methods[objDesc.__r_id] = {
-                    method : obj
-                    obj : {}
-            }
-            return objDesc
-        objDesc.__r_type = 'objDes'
-        objDesc.__r_props = {}
-        objDesc.__r_funcs = {}
-        for k, v of obj
-            if typeof v is 'function' and not v.__r_type?
-                methodId = @getSequence()
-                objDesc.__r_funcs[k]=methodId
-                @methods[methodId] = {
-                    method : v
-                    obj : obj
-                }
-                #console.log "#{methodId} : #{@methods[methodId]} #{@methods[methodId].method}"
-            else
-                objDesc.__r_props[k] = @serializeObject(v)
+        @__serializeObject(obj, {})
 
-        return objDesc
+    #append remote markers to existing object or create a new object with remote markers
+    __addRemoteMarkers : (id, host, port, type, source)->
+        result = if source? then source else {}
+        result.__r_id = id
+        result.__r_type = type
+        # only add fields if they are from elsewhere
+        if host? and port? and (host isnt @host or port isnt @port)
+            result.__r_host = host
+            result.__r_port = port
+        return result
+
+    __newRemoteObjectDesc : (id, host, port) ->
+        return @__addRemoteMarkers(id, host, port , 'objDes')
+
+    __addFuncToRemoteObjDesc : (desc, key, id) ->
+        if not desc.__r_funcs?
+            desc.__r_funcs={}
+        desc.__r_funcs[key] = id
+
+    __addPropToRemoteObjDesc : (desc, key, v) ->
+        if not desc.__r_props?
+            desc.__r_props = {}
+        desc.__r_props[key] = v
+        
+
+    __newRemoteFunctionDesc : (id, host, port) ->
+        return @__addRemoteMarkers(id, host, port , 'funcDes')
+        
+    #map is used to check cyclic reference
+    __serializeObject : (obj, map)->
+        if obj is null or (typeof obj isnt 'object' and typeof obj isnt 'function')
+            return obj
+        # assign id, this is definitely a local object
+        if not obj.__r_id?
+            obj.__r_id = @getSequence()
+            @objects[obj.__r_id] = obj
+        host = if obj.__r_host? then obj.__r_host else @host
+        port = if obj.__r_port? then obj.__r_port else @port
+        if not map[host]?
+            map[host]={}
+        if not map[host][port]?
+            map[host][port]={}
+        id = obj.__r_id
+        cached = if map[host][port][id]? then map[host][port][id] else null
+        if cached
+            return @__addRemoteMarkers(id, host, port, 'ref')
+        else
+            map[host][port][id] = true
+            if obj.__r_type?
+                return @serializeForRemoteTypes(obj, map)
+            # serialize function
+            if typeof obj is 'function'
+                funcDesc = @__newRemoteFunctionDesc(id, @host, @port)
+                @methods[id] = {
+                        method : obj
+                        obj : {}
+                }
+                return funcDesc
+            # serialize object
+            objDesc = @__newRemoteObjectDesc(id, @host, @port)
+            for k, v of obj
+                if k.indexOf('__r_') is 0
+                    continue
+                # to minimize size, local function will only take up an id field
+                if typeof v is 'function' and not v.__r_type?
+                    #if this function was registerd before, calling __serializeObject will make sure id be reused
+                    funcDesc = @__serializeObject(v, map)
+                    methodId = funcDesc.__r_id
+                    @__addFuncToRemoteObjDesc(objDesc,k,methodId)
+                    @methods[methodId] = {
+                        method : v
+                        obj : obj
+                    }
+                    #console.log "#{methodId} : #{@methods[methodId]} #{@methods[methodId].method}"
+                else
+                    # for remote methods or other property we need full descriptor
+                    @__addPropToRemoteObjDesc(objDesc, k, @__serializeObject(v, map))
+
+            return objDesc        
 
     #convert remote objects to remote descriptors
-    serializeForRemoteTypes : (obj)->
+    serializeForRemoteTypes : (obj, map)->
         if obj.__r_type is 'objDes' or obj.__r_type is 'funcDes'
+            #this should not happen, unless in the future, descriptors are cached
+            console.log "descriptors should only live in transmission layer"
             return obj
         if obj.__r_type is 'object'
-            result = {
-                __r_props : {}
-                __r_funcs : {}
-            }
+            result = @__newRemoteObjectDesc(obj.__r_id, obj.__r_host, obj.__r_port)
             for k, v of obj
+                if k.indexOf('__r_') is 0
+                    continue
                 if typeof v is 'function'
-                    result.__r_funcs[k]=v.__r_id
+                    @__addFuncToRemoteObjDesc(result,k, v.__r_id)
                 else
-                    result.__r_props[k]=v
-            result.__r_type = 'objDes'
+                    @__addPropToRemoteObjDesc(result, k, @__serializeObject(v, map))
             return result
         if obj.__r_type is 'function'
-            return {
-                __r_id : obj.__r_id
-                __r_host : obj.__r_host
-                __r_port : obj.__r_port
-                __r_type : 'funcDes'
-            }           
+            return @__newRemoteFunctionDesc(obj.__r_id, obj.__r_host, obj.__r_port)
+
 
     retriveObj : (option, callback)->
         reqOption = {
@@ -178,14 +227,15 @@ class RmiService extends EventEmitter
                 objName : option.objName
             }
         }
-        httpRequest(reqOption, (err, body, req)=>
+        httpRequest(reqOption, (err, body, resp)=>
             if err?
                 callback err
                 return
             console.log "#{@host}:#{@port} receive response..."
             console.log body
-            remoteObj = JSON.parse(body)
-            callback null, @parseRemoteObj(remoteObj)
+            respObj = JSON.parse(body)
+            result = @parseRemoteObj(respObj, option, {})
+            callback null, result
         )
     #copy host, port, etc
     mergeRemoteObj : (dest, src) ->
@@ -194,36 +244,79 @@ class RmiService extends EventEmitter
         dest.__r_port = src.__r_port
         return dest
 
+    __newRemoteObj : (desc, context) ->
+        result = {
+            __r_id : desc.__r_id
+            __r_type : 'object'
+            __r_host : if desc.__r_host? then desc.__r_host else context.host
+            __r_port : if desc.__r_port? then desc.__r_port else context.port
+        }
+
+    __newRemoteFunc : (desc, context) ->
+        id = if desc.__r_id? then desc.__r_id else desc
+        host = if desc.__r_host? then desc.__r_host else context.host
+        port = if desc.__r_port? then desc.__r_port else context.port
+        # it is local method
+        if host is @host and port is @port
+            return @methods[id].method
+        _this = @
+        func = do (_this, host, port ,id)->
+            ()->
+                _this.invokeRemoteMethod(host, port, id, arguments)
+        func.__r_id = id
+        func.__r_host = host
+        func.__r_port = port
+        func.__r_type = 'function'
+        return func
+
+    __findInMap : (desc, context, map) ->
+        id = desc.__r_id
+        host = if desc.__r_host? then desc.__r_host else context.host
+        port = if desc.__r_port? then desc.__r_port else context.port
+        return map[host][port][id]
+
+    __putInMap : (desc, context, map) ->
+        id = desc.__r_id
+        host = if desc.__r_host? then desc.__r_host else context.host
+        port = if desc.__r_port? then desc.__r_port else context.port
+        if not map[host]?
+            map[host]={}
+        if not map[host][port]?
+            map[host][port] = {}
+        map[host][port][id] = desc
+        
+        
+
     #parse descriptors to remote stub
-    parseRemoteObj : (obj)->
+    #context is the server's host and port
+    #map is for cyclic detection
+    parseRemoteObj : (obj, context, map)->
         #return simple types
         if not obj? or not obj.__r_type?
             return obj
-        host = obj.__r_host
-        port = obj.__r_port
+        
         if obj.__r_type is 'objDes'
-            #TODO: if it is local object, convert to local object
-            result = @mergeRemoteObj({}, obj)
-            result.__r_type = 'object'
+            if obj.__r_host is @host and obj.__r_port is @port
+                return @objects[obj.__r_id]
+            
+            
+            result = @__newRemoteObj(obj, context)
+            @__putInMap(result, context, map)
             for k, v of obj.__r_props
-                result[k]=@parseRemoteObj(v)
-            for k, v of obj.__r_funcs
-                _this = @
-                func = do (_this, v)->
-                    ()->
-                        _this.invokeRemoteMethod(host, port, v, arguments)
-                @mergeRemoteObj(func, obj)
-                func.__r_type = 'function'
-                result[k] = func
+                result[k]= @parseRemoteObj(v, context, map)
+            for k, funcId of obj.__r_funcs
+                remoteFunc = @__newRemoteFunc(funcId, context)
+                result[k] = remoteFunc
+                @__putInMap(remoteFunc, context, map) 
             return result
             
         if obj.__r_type is 'funcDes'
-            #TODO: if it is local method, convert to local method
-            func = ()=>
-                @invokeRemoteMethod(host,port,obj.__r_id,arguments)
-            @mergeRemoteObj(func, obj)
-            func.__r_type = 'function'
-            return func
+            remoteFunc = @__newRemoteFunc(obj, context)
+            @__putInMap(remoteFunc, context, map)
+            return remoteFunc
+        if obj.__r_type is 'ref'
+            return @__findInMap(obj, context, map)
+
         # no other types
         throw new Error('Unknown type')
 
@@ -244,6 +337,8 @@ class RmiService extends EventEmitter
             requestBody : {
                 type : 'invoke'
                 objId : id
+                host : @host
+                port : @port
                 args : serializedArgs
             }
         }
@@ -287,50 +382,5 @@ httpRequest = (options, handler)->
 
 
 
-
-
-###   
-serverConf ={
-    host:'localhost'
-    port : 7000
-}
-clientConf ={
-    host:'localhost'
-    port : 8000   
-}
-
-serverObj = {
-    kk : ()->
-        console.log "invoke kk"
-    funcWithCallBack : (arg1, callback)->
-        console.log "get arg1 #{JSON.stringify(arg1)}"
-        callback 55
-}
-retriveRequest=null
-client=null
-new RmiService(serverConf,(err, server)->
-    server.createSkeleton('serverObj', serverObj)
-    new RmiService(clientConf, (err, client)->
-        retriveRequest = lodash.merge({},serverConf)
-        retriveRequest.objName = 'serverObj'
-        client.retriveObj(retriveRequest, (err, stub)->
-            #console.log JSON.stringify(stub)
-            stub.kk()
-            stub.funcWithCallBack({cs:33}, (val)->
-                console.log "get from server #{val}"
-            )
-            stub.funcWithCallBack(client, (val)->
-                console.log "get from server #{val}"
-            )
-        )
-    )
-
-)
-###
-
 exports.createRmiService = (options, callback)->
     new RmiService(options, callback)
-
-
-    
-
