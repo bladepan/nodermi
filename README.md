@@ -5,6 +5,8 @@ A simple rmi service for node
 
 It is designed to handle complex communication patterns, a group of servers can talk to each other and pass around remote objects.
 
+**This project is just getting started**
+
 ##API
 ###Initialize
 option : host, port; callback error, rmiService 
@@ -55,6 +57,7 @@ serverObj2 = {
     }
 }
 
+# a cyclic object
 serverObj2.prop2.serverObj2 = serverObj2
 
 retriveRequest=null
@@ -66,16 +69,14 @@ rminode.createRmiService(serverConf,(err, server)->
         retriveRequest = lodash.merge({},serverConf)
         retriveRequest.objName = 'serverObj'
         client.retriveObj(retriveRequest, (err, stub)->
-            #console.log JSON.stringify(stub)
             stub.kk()
             stub.funcWithCallBack({cs:33}, (val)->
+                # the remote function pass back the local object
                 console.log "get from server #{JSON.stringify(val)}"
             )
-            #stub.funcWithCallBack(client, (val)->
-            #    console.log "get from server #{val}"
-            #)
         )
-        #this time retrive all
+        
+        #this time retrive all objects
         client.retriveObj(serverConf,(err, stub)->
             console.log stub.serverObj2.prop2.serverObj2.prop1
         )
