@@ -64,8 +64,18 @@ lodash         = require 'lodash'
 
 
 class RmiService extends EventEmitter
-    constructor: (@option, callback) ->
-        {@host, @port} = @option
+    #fixed private prefix
+    _privatePrefix : '_'
+    ###
+    __defineGetter__  __defineSetter__   __lookupGetter__  __lookupSetter__  
+    constructor hasOwnProperty isPrototypeOf propertyIsEnumerable toLocaleString        
+    toString valueOf toJSON
+    ###
+    _excludeMethods : ['constructor', 'hasOwnProperty','isPrototypeOf',
+                        'propertyIsEnumerable', 'toLocaleString', 'toString',
+                        'valueOf', 'toJSON']
+    constructor: (@_option, callback) ->
+        {@host, @port} = @_option
         @sequence = 42
         @serverObj = {}
         @methods = {}        
@@ -82,6 +92,15 @@ class RmiService extends EventEmitter
                 callback null, this
             console.log "RmiService listening on #{@port}"
         )
+        
+    _isPrivate : (name)->
+        if name.indexOf(@_privatePrefix) is 0
+            return true
+        for exclude in @_excludeMethods
+            if name is exclude
+                return true
+        return false
+        
         
 
     getSequence :()->
@@ -114,7 +133,7 @@ class RmiService extends EventEmitter
     createSkeleton: (endPoint, obj)->
         @serverObj[endPoint] = obj
 
-    #TODO add support for cyclic objects
+    #TODO only keep id if the object is from the destination
     serializeObject : (obj)->
         @__serializeObject(obj, {})
 
@@ -179,7 +198,7 @@ class RmiService extends EventEmitter
             # serialize object
             objDesc = @__newRemoteObjectDesc(id, @host, @port)
             for k, v of obj
-                if k.indexOf('__r_') is 0
+                if @_isPrivate(k)
                     continue
                 # to minimize size, local function will only take up an id field
                 if typeof v is 'function' and not v.__r_type?
@@ -296,9 +315,9 @@ class RmiService extends EventEmitter
             return obj
         
         if obj.__r_type is 'objDes'
+            # return local object if possible
             if obj.__r_host is @host and obj.__r_port is @port
                 return @objects[obj.__r_id]
-            
             
             result = @__newRemoteObj(obj, context)
             @__putInMap(result, context, map)
@@ -315,6 +334,9 @@ class RmiService extends EventEmitter
             @__putInMap(remoteFunc, context, map)
             return remoteFunc
         if obj.__r_type is 'ref'
+            # return local object if possible
+            if obj.__r_host is @host and obj.__r_port is @port
+                return @objects[obj.__r_id]
             return @__findInMap(obj, context, map)
 
         # no other types
