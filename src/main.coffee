@@ -93,9 +93,15 @@ class RmiService extends EventEmitter
             console.log "RmiService listening on #{@port}"
         )
         
-    _isPrivate : (name)->
+    _isPrivate : (name, skipList)->
         if name.indexOf(@_privatePrefix) is 0
             return true
+
+        if skipList?
+            for exclude in skipList
+                if name is exclude
+                    return true
+        
         for exclude in @_excludeMethods
             if name is exclude
                 return true
@@ -198,7 +204,7 @@ class RmiService extends EventEmitter
             # serialize object
             objDesc = @__newRemoteObjectDesc(id, @host, @port)
             for k, v of obj
-                if @_isPrivate(k)
+                if @_isPrivate(k, obj.__r_skip)
                     continue
                 # to minimize size, local function will only take up an id field
                 if typeof v is 'function' and not v.__r_type?
