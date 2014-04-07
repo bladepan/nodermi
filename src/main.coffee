@@ -12,7 +12,9 @@
 #   __r_id
 #   __r_host
 #   __r_port
-#   __r_type : 'objDes'
+#   __r_type : 'objDes' or 'arrDes' or 'dateDes'
+#   __r_arr : [ elements for array]
+#   __r_date : date.toJSON()
 #   __r_props : {
 #       key/value mapping of primitive types and other remote object descriptor
 #   }
@@ -144,7 +146,7 @@ class RmiService extends EventEmitter
         @__serializeObject(obj, {})
 
     #append remote markers to existing object or create a new object with remote markers
-    __addRemoteMarkers : (id, host, port, type, source)->
+    __createRemoteDesc : (id, host, port, type, source)->
         result = if source? then source else {}
         result.__r_id = id
         result.__r_type = type
@@ -155,7 +157,12 @@ class RmiService extends EventEmitter
         return result
 
     __newRemoteObjectDesc : (id, host, port) ->
-        return @__addRemoteMarkers(id, host, port , 'objDes')
+        return @__createRemoteDesc(id, host, port , 'objDes')
+
+    __newRemoteArrayDesc : (id, host, port) ->
+        return @__createRemoteDesc(id, host, port , 'arrDes',{
+            __r_arr : []
+            })
 
     __addFuncToRemoteObjDesc : (desc, key, id) ->
         if not desc.__r_funcs?
@@ -169,7 +176,7 @@ class RmiService extends EventEmitter
         
 
     __newRemoteFunctionDesc : (id, host, port) ->
-        return @__addRemoteMarkers(id, host, port , 'funcDes')
+        return @__createRemoteDesc(id, host, port , 'funcDes')
         
     #map is used to check cyclic reference
     __serializeObject : (obj, map)->
@@ -191,7 +198,7 @@ class RmiService extends EventEmitter
         cached = if map[host][port][id]? then map[host][port][id] else null
         if cached
             # new ref type
-            return @__addRemoteMarkers(id, host, port, 'ref')
+            return @__createRemoteDesc(id, host, port, 'ref')
         else
             # put it to cyclic checking map
             map[host][port][id] = true
@@ -206,6 +213,15 @@ class RmiService extends EventEmitter
                 }
                 return funcDesc
             # serialize object
+            if lodash.isArray(obj)
+                objDesc = @__newRemoteArrayDesc(id, @host, @port)
+                #we only care elements in array
+                #if the array has member function
+                for element in obj
+                    objDesc.__r_arr.push(@__serializeObject(element,map))
+                return objDesc
+                
+            
             objDesc = @__newRemoteObjectDesc(id, @host, @port)
             for k, v of obj
                 if @_isPrivate(k, obj.__r_skip)
@@ -234,6 +250,14 @@ class RmiService extends EventEmitter
             console.log "descriptors should only live in transmission layer"
             return obj
         if obj.__r_type is 'object'
+            
+            if lodash.isArray(obj)
+                result = @__newRemoteArrayDesc(obj.__r_id, obj.__r_host, obj.__r_port)
+                for v in array
+                    result.__r_arr.push(@__serializeObject(v, map))
+                return result
+                
+            # ordinary object
             result = @__newRemoteObjectDesc(obj.__r_id, obj.__r_host, obj.__r_port)
             for k, v of obj
                 if k.indexOf('__r_') is 0
@@ -267,12 +291,23 @@ class RmiService extends EventEmitter
             callback null, result
         )
 
+    __appendRemoteMarker : (remoteObj, desc, context, type) ->
+        id = if desc.__r_id? then desc.__r_id else desc
+        host = if desc.__r_host? then desc.__r_host else context.host
+        port = if desc.__r_port? then desc.__r_port else context.port
+        addHiddenField(remoteObj, '__r_id', id)
+        addHiddenField(remoteObj, '__r_host', host)
+        addHiddenField(remoteObj, '__r_port', port)
+        addHiddenField(remoteObj, '__r_type', type)
+
+
+    __newRemoteArr : (desc, context) ->
+        result = []
+        @__appendRemoteMarker(result, desc, context, 'object')
+
     __newRemoteObj : (desc, context) ->
         result = {}
-        addHiddenField(result,'__r_id', desc.__r_id)
-        addHiddenField(result,'__r_type','object')
-        addHiddenField(result,'__r_host', if desc.__r_host? then desc.__r_host else context.host)
-        addHiddenField(result,'__r_port', if desc.__r_port? then desc.__r_port else context.port)
+        @__appendRemoteMarker(result, desc, context, 'object')
 
     __newRemoteFunc : (desc, context) ->
         id = if desc.__r_id? then desc.__r_id else desc
@@ -285,10 +320,7 @@ class RmiService extends EventEmitter
         func = do (_this, host, port ,id)->
             ()->
                 _this.invokeRemoteMethod(host, port, id, arguments)
-        addHiddenField(func, '__r_id', id)
-        addHiddenField(func, '__r_host', host)
-        addHiddenField(func, '__r_port', port)
-        addHiddenField(func, '__r_type', 'function')
+        @__appendRemoteMarker(func, desc, context, 'function')
         return func
 
     __findInMap : (desc, context, map) ->
@@ -317,19 +349,28 @@ class RmiService extends EventEmitter
         if not obj? or not obj.__r_type?
             return obj
         
-        if obj.__r_type is 'objDes'
+        if obj.__r_type is 'objDes' or obj.__r_type is 'arrDes'
             # return local object if possible
             if obj.__r_host is @host and obj.__r_port is @port
-                return @objects[obj.__r_id]
+                localObj = @objects[obj.__r_id]
+                @__putInMap(localObj, context, map)
+                return localObj
+            result = null
+            if obj.__r_type is 'objDes'
+                result = @__newRemoteObj(obj, context)
+            if obj.__r_type is 'arrDes'
+                result = @__newRemoteArr(obj, context)
             
-            result = @__newRemoteObj(obj, context)
             @__putInMap(result, context, map)
             for k, v of obj.__r_props
                 result[k]= @parseRemoteObj(v, context, map)
             for k, funcId of obj.__r_funcs
                 remoteFunc = @__newRemoteFunc(funcId, context)
                 result[k] = remoteFunc
-                @__putInMap(remoteFunc, context, map) 
+                @__putInMap(remoteFunc, context, map)
+            if obj.__r_arr?
+                for v in obj.__r_arr
+                    result.push(@parseRemoteObj(v, context, map))
             return result
             
         if obj.__r_type is 'funcDes'
