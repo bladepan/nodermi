@@ -177,7 +177,8 @@ class RmiService extends EventEmitter
             return obj
         # assign id, this is definitely a local object
         if not obj.__r_id?
-            obj.__r_id = @getSequence()
+            # we certainly do not want to contaminate the original object 
+            addHiddenField(obj, '__r_id', @getSequence())
             @objects[obj.__r_id] = obj
         host = if obj.__r_host? then obj.__r_host else @host
         port = if obj.__r_port? then obj.__r_port else @port
@@ -186,10 +187,13 @@ class RmiService extends EventEmitter
         if not map[host][port]?
             map[host][port]={}
         id = obj.__r_id
+        # to see if it is a cyclic reference
         cached = if map[host][port][id]? then map[host][port][id] else null
         if cached
+            # new ref type
             return @__addRemoteMarkers(id, host, port, 'ref')
         else
+            # put it to cyclic checking map
             map[host][port][id] = true
             if obj.__r_type?
                 return @serializeForRemoteTypes(obj, map)
@@ -262,20 +266,13 @@ class RmiService extends EventEmitter
             result = @parseRemoteObj(respObj, option, {})
             callback null, result
         )
-    #copy host, port, etc
-    mergeRemoteObj : (dest, src) ->
-        dest.__r_id = src.__r_id
-        dest.__r_host = src.__r_host
-        dest.__r_port = src.__r_port
-        return dest
 
     __newRemoteObj : (desc, context) ->
-        result = {
-            __r_id : desc.__r_id
-            __r_type : 'object'
-            __r_host : if desc.__r_host? then desc.__r_host else context.host
-            __r_port : if desc.__r_port? then desc.__r_port else context.port
-        }
+        result = {}
+        addHiddenField(result,'__r_id', desc.__r_id)
+        addHiddenField(result,'__r_type','object')
+        addHiddenField(result,'__r_host', if desc.__r_host? then desc.__r_host else context.host)
+        addHiddenField(result,'__r_port', if desc.__r_port? then desc.__r_port else context.port)
 
     __newRemoteFunc : (desc, context) ->
         id = if desc.__r_id? then desc.__r_id else desc
@@ -283,15 +280,15 @@ class RmiService extends EventEmitter
         port = if desc.__r_port? then desc.__r_port else context.port
         # it is local method
         if host is @host and port is @port
-            return @methods[id].method
+            return lodash.bind(@methods[id].method, @methods[id].obj)
         _this = @
         func = do (_this, host, port ,id)->
             ()->
                 _this.invokeRemoteMethod(host, port, id, arguments)
-        func.__r_id = id
-        func.__r_host = host
-        func.__r_port = port
-        func.__r_type = 'function'
+        addHiddenField(func, '__r_id', id)
+        addHiddenField(func, '__r_host', host)
+        addHiddenField(func, '__r_port', port)
+        addHiddenField(func, '__r_type', 'function')
         return func
 
     __findInMap : (desc, context, map) ->
@@ -380,6 +377,14 @@ class RmiService extends EventEmitter
             # TODO parse error requests
         )
 
+
+addHiddenField = (obj, key, val) ->
+    Object.defineProperty(obj, key,{
+        value : val
+        writable : false
+        enumerable : false
+        configurable : false
+    })
         
 #options is identical to options in http.request function, with an optional requestBody
 # handler(err, body, response)
