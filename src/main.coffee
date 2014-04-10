@@ -59,14 +59,16 @@
 #  descriptors only live in transmission layer
 #  __r_host and __r_port are leave out if it is the local object from the server
 #
+fs             = require 'fs'
 http           = require 'http'   
 {EventEmitter} = require('events')
+
 express        = require 'express'
 lodash         = require 'lodash'
 
 
 class RmiService extends EventEmitter
-    #fixed private prefix
+    # The pact is private fields are started with _
     _privatePrefix : '_'
     ###
     __defineGetter__  __defineSetter__   __lookupGetter__  __lookupSetter__  
@@ -78,6 +80,8 @@ class RmiService extends EventEmitter
                         'valueOf', 'toJSON']
     constructor: (@_option, callback) ->
         {@host, @port} = @_option
+        @_logging = true
+        @_fileName ="#{@host}-#{@port}.log"
         @sequence = 42
         @serverObj = {}
         @methods = {}        
@@ -92,7 +96,7 @@ class RmiService extends EventEmitter
         @server.listen(@port,@host,511, ()=>
             if callback?
                 callback null, this
-            console.log "RmiService listening on #{@port}"
+            @_log "RmiService listening on #{@port}"
         )
         
     _isPrivate : (name, skipList)->
@@ -109,14 +113,23 @@ class RmiService extends EventEmitter
                 return true
         return false
         
+    _log : (str) ->
+        if @_logging
+            fs.appendFile(@_fileName, str+'\n', (err)->
+                if err
+                    console.log "nodermi logging error"
+                    console.log err
+                    console.log err.stack
+            )
+            
         
 
     getSequence :()->
         @sequence++
 
     handleRemoteRequest : (req, res)->
-        console.log "#{@host}:#{@port} receive request..."
-        console.log JSON.stringify(req.body)
+        @_log "#{@host}:#{@port} receive request..."
+        @_log JSON.stringify(req.body)
         if(req.body.type is 'retrive')
             obj = @serverObj
             if req.body.objName?
@@ -236,7 +249,7 @@ class RmiService extends EventEmitter
                         method : v
                         obj : obj
                     }
-                    #console.log "#{methodId} : #{@methods[methodId]} #{@methods[methodId].method}"
+                    #@_log "#{methodId} : #{@methods[methodId]} #{@methods[methodId].method}"
                 else
                     # for remote methods or other property we need full descriptor
                     @__addPropToRemoteObjDesc(objDesc, k, @__serializeObject(v, map))
@@ -247,7 +260,7 @@ class RmiService extends EventEmitter
     serializeForRemoteTypes : (obj, map)->
         if obj.__r_type is 'objDes' or obj.__r_type is 'funcDes'
             #this should not happen, unless in the future, descriptors are cached
-            console.log "descriptors should only live in transmission layer"
+            @_log "descriptors should only live in transmission layer"
             return obj
         if obj.__r_type is 'object'
             
@@ -280,12 +293,12 @@ class RmiService extends EventEmitter
                 objName : option.objName
             }
         }
-        httpRequest(reqOption, (err, body, resp)=>
+        @httpRequest(reqOption, (err, body, resp)=>
             if err?
                 callback err
                 return
-            console.log "#{@host}:#{@port} receive response..."
-            console.log body
+            @_log "#{@host}:#{@port} receive response..."
+            @_log body
             respObj = JSON.parse(body)
             result = @parseRemoteObj(respObj, option, {})
             callback null, result
@@ -408,7 +421,7 @@ class RmiService extends EventEmitter
                 args : serializedArgs
             }
         }
-        httpRequest(reqOption, (err, body, resp)=>
+        @httpRequest(reqOption, (err, body, resp)=>
             if err?
                 if callback?
                     callback err
@@ -417,6 +430,33 @@ class RmiService extends EventEmitter
                 return
             # TODO parse error requests
         )
+
+    #options is identical to options in http.request function, with an optional requestBody
+    # handler(err, body, response)
+    httpRequest : (options, handler)->
+        options.method = 'POST'
+        options.headers = {"Content-type" :"application/json; charset=utf-8"}
+        req = http.request(options, (res)->
+            res.setEncoding('utf8')
+            body=''
+            res.on('data', (chunk)->
+                body+=chunk
+            )
+            res.on('end',()->
+                handler null, body, res
+            )
+        )
+        req.on('error',(e)->
+            handler e
+        )
+        if options.requestBody?
+            @_log "post #{options.hostname}:#{options.port} #{JSON.stringify(options.requestBody)}"
+            if typeof options is 'string'
+                req.write(options.requestBody)
+            else
+                req.write(JSON.stringify(options.requestBody))
+        req.end()
+        return req
 
 
 addHiddenField = (obj, key, val) ->
@@ -427,32 +467,7 @@ addHiddenField = (obj, key, val) ->
         configurable : false
     })
         
-#options is identical to options in http.request function, with an optional requestBody
-# handler(err, body, response)
-httpRequest = (options, handler)->
-    options.method = 'POST'
-    options.headers = {"Content-type" :"application/json; charset=utf-8"}
-    req = http.request(options, (res)->
-        res.setEncoding('utf8')
-        body=''
-        res.on('data', (chunk)->
-            body+=chunk
-        )
-        res.on('end',()->
-            handler null, body, res
-        )
-    )
-    req.on('error',(e)->
-        handler e
-    )
-    if options.requestBody?
-        console.log "post #{options.hostname}:#{options.port} #{JSON.stringify(options.requestBody)}"
-        if typeof options is 'string'
-            req.write(options.requestBody)
-        else
-            req.write(JSON.stringify(options.requestBody))
-    req.end()
-    return req
+
 
 
 
