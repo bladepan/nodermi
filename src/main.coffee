@@ -18,9 +18,6 @@
 #   __r_props : {
 #       key/value mapping of primitive types and other remote object descriptor
 #   }
-#   __r_funcs :{
-#       name/ method id mapping
-#   }
 # }
 # 
 # remote Function
@@ -141,14 +138,19 @@ class RmiService extends EventEmitter
             res.end()
             return
         if req.body.type is 'invoke'
-            method = @methods[req.body.objId]
+            if req.body.methodName?
+                obj = @objects[req.body.objId]
+                method = obj[req.body.methodName]
+            else
+                obj = {}
+                method = @objects[req.body.objId]
             if not method?
                 return @noSuchMethod(res)
             args = []
             for arg in req.body.args
                 remoteObj = @parseRemoteObj(arg,{host:req.body.host, port:req.body.port}, {})
                 args.push(remoteObj)               
-            method.method.apply(method.obj, args)
+            method.apply(obj, args)
             res.end()
             return
 
@@ -177,11 +179,6 @@ class RmiService extends EventEmitter
         return @__createRemoteDesc(id, host, port , 'arrDes',{
             __r_arr : []
             })
-
-    __addFuncToRemoteObjDesc : (desc, key, id) ->
-        if not desc.__r_funcs?
-            desc.__r_funcs={}
-        desc.__r_funcs[key] = id
 
     __addPropToRemoteObjDesc : (desc, key, v) ->
         if not desc.__r_props?
@@ -227,10 +224,6 @@ class RmiService extends EventEmitter
             # serialize function
             if typeof obj is 'function'
                 funcDesc = @__newRemoteFunctionDesc(id, @host, @port)
-                @methods[id] = {
-                        method : obj
-                        obj : {}
-                }
                 return funcDesc
             # serialize object
             if lodash.isArray(obj)
@@ -246,19 +239,10 @@ class RmiService extends EventEmitter
             for k, v of obj
                 if @_isPrivate(k, obj.__r_skip)
                     continue
-                # to minimize size, local function will only take up an id field
                 if typeof v is 'function' and not v.__r_type?
-                    #if this function was registerd before, calling __serializeObject will make sure id be reused
-                    funcDesc = @__serializeObject(v, map)
-                    methodId = funcDesc.__r_id
-                    @__addFuncToRemoteObjDesc(objDesc,k,methodId)
-                    @methods[methodId] = {
-                        method : v
-                        obj : obj
-                    }
-                    #@_log "#{methodId} : #{@methods[methodId]} #{@methods[methodId].method}"
+                    # since methods are found by name, a type would be enough
+                    @__addPropToRemoteObjDesc(objDesc, k, {__r_type:'funcDes'})    
                 else
-                    # for remote methods or other property we need full descriptor
                     @__addPropToRemoteObjDesc(objDesc, k, @__serializeObject(v, map))
 
             return objDesc        
@@ -282,10 +266,7 @@ class RmiService extends EventEmitter
             for k, v of obj
                 if k.indexOf('__r_') is 0
                     continue
-                if typeof v is 'function'
-                    @__addFuncToRemoteObjDesc(result,k, v.__r_id)
-                else
-                    @__addPropToRemoteObjDesc(result, k, @__serializeObject(v, map))
+                @__addPropToRemoteObjDesc(result, k, @__serializeObject(v, map))
             return result
         if obj.__r_type is 'function'
             return @__newRemoteFunctionDesc(obj.__r_id, obj.__r_host, obj.__r_port)
@@ -335,11 +316,12 @@ class RmiService extends EventEmitter
         port = if desc.__r_port? then desc.__r_port else context.port
         # it is local method
         if host is @host and port is @port
-            return lodash.bind(@methods[id].method, @methods[id].obj)
+            return @objects[id]
+
         _this = @
         func = do (_this, host, port ,id)->
             ()->
-                _this.invokeRemoteMethod(host, port, id, arguments)
+                _this.invokeRemoteFunc(host, port, id, arguments)
         @__appendRemoteMarker(func, desc, context, 'function')
         return func
 
@@ -359,7 +341,17 @@ class RmiService extends EventEmitter
             map[host][port] = {}
         map[host][port][id] = desc
         
-        
+    __newRemoteMethod : (desc, key, context) ->
+        id = if desc.__r_id? then desc.__r_id else desc
+        host = if desc.__r_host? then desc.__r_host else context.host
+        port = if desc.__r_port? then desc.__r_port else context.port
+        _this = @
+        func = do (_this, host, port ,id)->
+            ()->
+                _this.invokeRemoteMethod(host, port, id, key, arguments)
+        @__appendRemoteMarker(func, desc, context, 'function')
+        return func
+
 
     #parse descriptors to remote stub
     #context is the server's host and port
@@ -368,13 +360,13 @@ class RmiService extends EventEmitter
         #return simple types
         if not obj? or not obj.__r_type?
             return obj
-        
-        if obj.__r_type is 'objDes' or obj.__r_type is 'arrDes'
-            # return local object if possible
-            if obj.__r_host is @host and obj.__r_port is @port
-                localObj = @objects[obj.__r_id]
-                @__putInMap(localObj, context, map)
-                return localObj
+        # return local object if possible
+        if obj.__r_host is @host and obj.__r_port is @port
+            localObj = @objects[obj.__r_id]
+            @__putInMap(localObj, context, map)
+            return localObj
+
+        if obj.__r_type is 'objDes' or obj.__r_type is 'arrDes'    
             result = null
             if obj.__r_type is 'objDes'
                 result = @__newRemoteObj(obj, context)
@@ -383,16 +375,15 @@ class RmiService extends EventEmitter
             
             @__putInMap(result, context, map)
             for k, v of obj.__r_props
-                result[k]= @parseRemoteObj(v, context, map)
-            for k, funcId of obj.__r_funcs
-                remoteFunc = @__newRemoteFunc(funcId, context)
-                result[k] = remoteFunc
-                @__putInMap(remoteFunc, context, map)
+                if v? and v.__r_type is 'funcDes'
+                    result[k] = @__newRemoteMethod(obj, k, context)
+                else
+                    result[k]= @parseRemoteObj(v, context, map, obj)
             if obj.__r_arr?
                 for v in obj.__r_arr
                     result.push(@parseRemoteObj(v, context, map))
             return result
-            
+        
         if obj.__r_type is 'funcDes'
             remoteFunc = @__newRemoteFunc(obj, context)
             @__putInMap(remoteFunc, context, map)
@@ -406,7 +397,7 @@ class RmiService extends EventEmitter
         # no other types
         throw new Error('Unknown type')
 
-    invokeRemoteMethod : (host, port, id, args)->
+    invokeRemoteFunc : (host, port, id, args)->
         serializedArgs = []
         callback = null
         if args?
@@ -437,6 +428,40 @@ class RmiService extends EventEmitter
                 return
             # TODO parse error requests
         )
+
+    invokeRemoteMethod : (host, port, id, methodName, args) ->
+        serializedArgs = []
+        callback = null
+        if args?
+            for arg in args
+                serializedArgs.push(@serializeObject(arg))
+            #conventionally the last arg is callback
+            lastArg = args[args.length-1]
+            if typeof lastArg is 'function'
+                callback = lastArg
+        
+        reqOption = {
+            hostname :host
+            port : port
+            requestBody : {
+                type : 'invoke'
+                objId : id
+                methodName : methodName
+                host : @host
+                port : @port
+                args : serializedArgs
+            }
+        }
+        @httpRequest(reqOption, (err, body, resp)=>
+            if err?
+                if callback?
+                    callback err
+                else
+                    @emit 'error', err
+                return
+            # TODO parse error requests
+        )
+
 
     #options is identical to options in http.request function, with an optional requestBody
     # handler(err, body, response)

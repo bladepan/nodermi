@@ -15,8 +15,10 @@ serverObj = {
         console.log "invoke kk"
     funcWithCallBack : (arg1, callback)->
         console.log "get arg1 #{arg1.cs}"
-        callback arg1
+        #callback arg1
         callback {cs:33}
+    funcWithCallBack2 : (arg1, callback) ->
+        callback arg1
 }
 
 serverObj2 = {
@@ -43,6 +45,10 @@ rminode.createRmiService(serverConf,(err, server)->
                 # the remote properties are hidden from enumeration
                 console.log "get from server #{JSON.stringify(val)}, host: #{val.__r_host} port: #{val.__r_port}"
 
+            )
+            obj = {}
+            stub.funcWithCallBack2(obj, (val)->
+                console.log "should get back local object: #{obj is val}"
             )
             #stub.funcWithCallBack(client, (val)->
             #    console.log "get from server #{val}"
