@@ -63,6 +63,7 @@ fs             = require 'fs'
 http           = require 'http'   
 {EventEmitter} = require('events')
 
+weak           = require 'weak'
 express        = require 'express'
 lodash         = require 'lodash'
 
@@ -196,6 +197,12 @@ class RmiService extends EventEmitter
         if obj is null or (typeof obj isnt 'object' and typeof obj isnt 'function')
             return obj
         # assign id, this is definitely a local object
+        if weak.isWeakRef(obj)
+            obj = weak.get(obj)
+            # dead reference
+            if not obj?
+                return null
+
         if not obj.__r_id?
             # we certainly do not want to contaminate the original object 
             addHiddenField(obj, '__r_id', @getSequence())

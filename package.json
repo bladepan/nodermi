@@ -10,7 +10,8 @@
     "grunt": "~0.4.4",
     "grunt-contrib-coffee": "~0.10.1",
     "lodash": "~2.4.1",
-    "express": "~3.5.1"
+    "express": "~3.5.1",
+    "weak": "0.3.0"
   },
   "devDependencies": {},
   "scripts": {
