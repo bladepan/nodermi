@@ -445,6 +445,7 @@ class RmiService extends EventEmitter
                 return
             # TODO parse error requests
         )
+        return null
 
     invokeRemoteMethod : (host, port, id, methodName, args) ->
         serializedArgs = []
