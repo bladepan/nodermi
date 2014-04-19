@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "grunt": "~0.4.4",
+    "grunt-cli" : "0.1.13 ",
     "grunt-contrib-coffee": "~0.10.1",
     "lodash": "~2.4.1",
     "express": "~3.5.1",
@@ -15,8 +16,8 @@
   },
   "devDependencies": {},
   "scripts": {
-    "install" : "grunt",
-    "test": "grunt"
+    "install" : "node_modules/grunt-cli/bin/grunt",
+    "test": "node_modules/grunt-cli/bin/grunt"
   },
   "repository": {
     "type": "git",
