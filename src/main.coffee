@@ -97,11 +97,28 @@ class RmiService extends EventEmitter
             @_log "RmiService listening on #{@port}"
         )
         
-    _isPrivate : (name, skipList)->
+    # skipList specifies properties the user want to skip in serialize, i.e. a private property
+    # includeList specifies properties the user want to include in serialize, i.e. not private.
+    _isPrivate : (name, skipList, includeList)->
+        if includeList?
+            # make this property sticky
+            if name is '__r_include'
+                return false
+            
+            if typeof includeList is 'string' and name is includeList
+                return false
+
+            for include in includeList
+                if name is include
+                    return false
+                
         if name.indexOf(@_privatePrefix) is 0
             return true
 
         if skipList?
+            if typeof skipList is 'string' and name is skipList
+                return true
+
             for exclude in skipList
                 if name is exclude
                     return true
@@ -237,7 +254,7 @@ class RmiService extends EventEmitter
             
             objDesc = @__newRemoteObjectDesc(id, @host, @port)
             for k, v of obj
-                if @_isPrivate(k, obj.__r_skip)
+                if @_isPrivate(k, obj.__r_skip, obj.__r_include)
                     continue
                 if typeof v is 'function' and not v.__r_type?
                     # since methods are found by name, a type would be enough

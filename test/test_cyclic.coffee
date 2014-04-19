@@ -22,6 +22,9 @@ serverObj = {
 }
 
 serverObj2 = {
+    __r_include : '_exposeFiled'
+    _exposeFiled : 42
+    _hiddenField : 55
     prop1 : 335
     prop2 :{
         kk : serverObj
@@ -58,6 +61,9 @@ rminode.createRmiService(serverConf,(err, server)->
         client.retriveObj(serverConf,(err, stub)->
             console.log stub.serverObj2.prop2.serverObj2.prop1
             console.log "The cyclic reference equals to each other: #{stub.serverObj2.prop2.serverObj2 is stub.serverObj2}"
+            console.log "_hiddenField : #{stub.serverObj2._hiddenField}"
+            console.log "_exposeFiled : #{stub.serverObj2._exposeFiled}"
+            console.log "__r_include : #{stub.serverObj2.__r_include}"
         )
     )
 
