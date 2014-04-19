@@ -14,7 +14,7 @@
 #   __r_port
 #   __r_type : 'objDes' or 'arrDes' or 'dateDes'
 #   __r_arr : [ elements for array]
-#   __r_date : date.toJSON()
+#   __r_date : date.getTime()
 #   __r_props : {
 #       key/value mapping of primitive types and other remote object descriptor
 #   }
@@ -57,12 +57,16 @@
 #  __r_host and __r_port are leave out if it is the local object from the server
 #
 fs             = require 'fs'
-http           = require 'http'   
+http           = require 'http'
+util = require 'util'   
 {EventEmitter} = require('events')
 
 weak           = require 'weak'
 express        = require 'express'
 lodash         = require 'lodash'
+
+# the globalObj
+globalObj = this
 
 
 class RmiService extends EventEmitter
@@ -205,17 +209,33 @@ class RmiService extends EventEmitter
 
     __newRemoteFunctionDesc : (id, host, port) ->
         return @__createRemoteDesc(id, host, port , 'funcDes')
+
+    __newRemoteDateDesc : (obj) ->
+        return {
+            __r_type : 'dateDes'
+            __r_date : obj.getTime()
+        }
+
         
     #map is used to check cyclic reference
     __serializeObject : (obj, map)->
         if obj is null or (typeof obj isnt 'object' and typeof obj isnt 'function')
             return obj
+
         # assign id, this is definitely a local object
         if weak.isWeakRef(obj)
             obj = weak.get(obj)
             # dead reference
             if not obj?
                 return null
+
+        if obj is globalObj
+            throw new Error("nodermi Error : trying to serialize global object")
+
+        # date is like a primitive type to us
+        if lodash.isDate(obj)
+            return @__newRemoteDateDesc(obj)
+
 
         if not obj.__r_id?
             # we certainly do not want to contaminate the original object 
@@ -250,7 +270,6 @@ class RmiService extends EventEmitter
                 for element in obj
                     objDesc.__r_arr.push(@__serializeObject(element,map))
                 return objDesc
-                
             
             objDesc = @__newRemoteObjectDesc(id, @host, @port)
             for k, v of obj
@@ -274,7 +293,7 @@ class RmiService extends EventEmitter
             
             if lodash.isArray(obj)
                 result = @__newRemoteArrayDesc(obj.__r_id, obj.__r_host, obj.__r_port)
-                for v in array
+                for v in obj
                     result.__r_arr.push(@__serializeObject(v, map))
                 return result
                 
@@ -382,6 +401,9 @@ class RmiService extends EventEmitter
             localObj = @objects[obj.__r_id]
             @__putInMap(localObj, context, map)
             return localObj
+
+        if obj.__r_type is 'dateDes'
+            return new Date(obj.__r_date)
 
         if obj.__r_type is 'objDes' or obj.__r_type is 'arrDes'    
             result = null

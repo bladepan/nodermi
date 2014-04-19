@@ -21,10 +21,13 @@ serverObj = {
         callback arg1
 }
 
+timeStamp = 42
+
 serverObj2 = {
     __r_include : '_exposeFiled'
     _exposeFiled : 42
     _hiddenField : 55
+    dateProp : new Date(timeStamp)
     prop1 : 335
     prop2 :{
         kk : serverObj
@@ -64,6 +67,8 @@ rminode.createRmiService(serverConf,(err, server)->
             console.log "_hiddenField : #{stub.serverObj2._hiddenField}"
             console.log "_exposeFiled : #{stub.serverObj2._exposeFiled}"
             console.log "__r_include : #{stub.serverObj2.__r_include}"
+            console.log "idDate stub.serverObj2.dateProp is #{lodash.isDate(stub.serverObj2.dateProp)}"
+            console.log "timeof stub.serverObj2.dateProp is #{stub.serverObj2.dateProp}"
         )
     )
 
