@@ -250,7 +250,8 @@ class RmiService extends EventEmitter
         id = obj.__r_id
         # to see if it is a cyclic reference
         cached = if map[host][port][id]? then map[host][port][id] else null
-        if cached
+        # there is no point to create reference for functions
+        if cached and typeof obj isnt 'function'
             # new ref type
             return @__createRemoteDesc(id, host, port, 'ref')
         else
@@ -260,11 +261,11 @@ class RmiService extends EventEmitter
                 return @serializeForRemoteTypes(obj, map)
             # serialize function
             if typeof obj is 'function'
-                funcDesc = @__newRemoteFunctionDesc(id, @host, @port)
+                funcDesc = @__newRemoteFunctionDesc(id, host, port)
                 return funcDesc
             # serialize object
             if lodash.isArray(obj)
-                objDesc = @__newRemoteArrayDesc(id, @host, @port)
+                objDesc = @__newRemoteArrayDesc(id, host, port)
                 #we only care elements in array
                 #if the array has member function
                 for element in obj
