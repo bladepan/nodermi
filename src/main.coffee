@@ -66,7 +66,7 @@ express        = require 'express'
 lodash         = require 'lodash'
 
 # the globalObj
-globalObj = this
+globalObj = global
 
 
 class RmiService extends EventEmitter
