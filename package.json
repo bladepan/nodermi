@@ -14,7 +14,7 @@
   },
   "devDependencies": {},
   "scripts": {
-    "install" : "./build.sh"
+    "prepublish" : "./build.sh"
   },
   "repository": {
     "type": "git",
