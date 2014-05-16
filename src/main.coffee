@@ -95,9 +95,9 @@ class RmiService extends EventEmitter
         @server.post('/',(req, res)=>
             @handleRemoteRequest(req, res)
             )
-        @server.listen(@port,@host,511, ()=>
+        @server.listen(@port,@host,511, (err)=>
             if callback?
-                callback null, this
+                callback err, this
             @_log "RmiService listening on #{@port}"
         )
         
