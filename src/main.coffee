@@ -94,7 +94,10 @@ class RmiService extends EventEmitter
         @server.use(express.json())
         @server.post('/',(req, res)=>
             @handleRemoteRequest(req, res)
-            )
+        )
+        
+
+        # apparently the callback only fired when it is sucess
         @server.listen(@port,@host,511, (err)=>
             if callback?
                 callback err, this
