@@ -19,6 +19,10 @@ serverObj = {
         callback {cs:33}
     funcWithCallBack2 : (arg1, callback) ->
         callback arg1
+    funcWithError : (arg1, callback) ->
+        if arg1 is 'ok'
+            return callback(null, 'response')
+        callback(new Error('Error processing '+ arg1))
 }
 
 timeStamp = 42
@@ -56,6 +60,13 @@ rminode.createRmiService(serverConf,(err, server)->
             stub.funcWithCallBack2(obj, (val)->
                 console.log "should get back local object: #{obj is val}"
             )
+
+            stub.funcWithError('ok', (err, response)->
+                console.log 'funcWithError : ' + response
+            )
+            stub.funcWithError('notok',(err)->
+                console.log('funcWithError ' + JSON.stringify(err))
+                )
             #stub.funcWithCallBack(client, (val)->
             #    console.log "get from server #{val}"
             #)

@@ -219,6 +219,16 @@ class RmiService extends EventEmitter
             __r_date : obj.getTime()
         }
 
+    __newRemoteErrorDesc : (obj) ->
+        return {
+            __r_type : 'objDes',
+            __r_props : {
+                message : obj.message,
+                stack : obj.stack
+            }
+        }
+
+
         
     #map is used to check cyclic reference
     __serializeObject : (obj, map)->
@@ -238,6 +248,10 @@ class RmiService extends EventEmitter
         # date is like a primitive type to us
         if lodash.isDate(obj)
             return @__newRemoteDateDesc(obj)
+        # we need special handling for Error because all interesting attributes
+        # of error are not emumerable
+        if obj instanceof Error
+            return @__newRemoteErrorDesc(obj)
 
 
         if not obj.__r_id?
