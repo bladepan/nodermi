@@ -95,12 +95,23 @@ class RmiService extends EventEmitter
         @server.post('/',(req, res)=>
             @handleRemoteRequest(req, res)
         )
-        
+        callbackFired = false
+        errorHandler = (err)->
+            if callback
+                callback err
+                callbackFired = true
 
-        # apparently the callback only fired when it is sucess
-        @server.listen(@port,@host,511, (err)=>
-            if callback?
+        httpServer = http.createServer(@server)
+
+        httpServer.on('error',errorHandler)
+
+        # apparently the callback is fired on 'listening' event, aka, it
+        # is only triggered when listening is successful.
+        # http://nodejs.org/api/net.html#net_server_listen_port_host_backlog_callback
+        httpServer.listen(@port,@host,511, (err)=>
+            if callback? and not callbackFired
                 callback err, this
+                @server.removeListener('error', errorHandler)
             @_log "RmiService listening on #{@port}"
         )
         
