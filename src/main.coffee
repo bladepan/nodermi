@@ -108,12 +108,18 @@ class RmiService extends EventEmitter
         # apparently the callback is fired on 'listening' event, aka, it
         # is only triggered when listening is successful.
         # http://nodejs.org/api/net.html#net_server_listen_port_host_backlog_callback
-        httpServer.listen(@port,@host,511, (err)=>
+        args = [@port]
+        # host is optional
+        args.push(@host) if @host?
+        args.push(511)
+        args.push((err)=>
             if callback? and not callbackFired
                 callback err, this
                 @server.removeListener('error', errorHandler)
             @_log "RmiService listening on #{@port}"
         )
+        httpServer.listen.apply(httpServer, args)        
+        
         
     # skipList specifies properties the user want to skip in serialize, i.e. a private property
     # includeList specifies properties the user want to include in serialize, i.e. not private.
