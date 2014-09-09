@@ -83,7 +83,9 @@ class RmiService extends EventEmitter
     constructor: (@_option, callback) ->
         {@host, @port} = @_option
         @_logging = true
-        @_fileName ="#{@host}-#{@port}.log"
+        @_fileName = "localhost-#{@port}.log"
+        if @host?
+            @_fileName = "#{@host}-#{@port}.log"
         @sequence = 42
         @serverObj = {}
         @methods = {}        
