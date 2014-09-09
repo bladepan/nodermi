@@ -93,8 +93,8 @@ class RmiService extends EventEmitter
         @server = express()
         #parse the body
         bodyParser = require('body-parser') 
-        @server.use(bodyParser.urlencoded({extended:true}))
-        @server.use(bodyParser.json())
+        @server.use(bodyParser.urlencoded({extended:true, limit:'10mb'}))
+        @server.use(bodyParser.json({limit:'10mb'}))
         @server.post('/',(req, res)=>
             @handleRemoteRequest(req, res)
         )
