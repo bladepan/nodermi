@@ -8,8 +8,9 @@
   },
   "dependencies": {
     "lodash": "~2.4.1",
-    "express": "~3.5.1",
-    "coffee-script": "1.7.1",
+    "express": "4.9.0",
+    "body-parser" : "1.8.1",
+    "coffee-script": "1.8.0",
     "weak": "0.3.3"
   },
   "devDependencies": {},
