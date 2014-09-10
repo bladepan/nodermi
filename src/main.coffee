@@ -82,7 +82,7 @@ class RmiService extends EventEmitter
                         'valueOf', 'toJSON']
     constructor: (@_option, callback) ->
         {@host, @port} = @_option
-        @_logging = true
+        @_logging = @_option.debug
         @_fileName = "localhost-#{@port}.log"
         if @host?
             @_fileName = "#{@host}-#{@port}.log"
@@ -92,9 +92,12 @@ class RmiService extends EventEmitter
         @objects = {}
         @server = express()
         #parse the body
-        bodyParser = require('body-parser') 
+        bodyParser = require('body-parser')
         @server.use(bodyParser.urlencoded({extended:true, limit:'10mb'}))
         @server.use(bodyParser.json({limit:'10mb'}))
+        @server.use(require('compression')({
+            threshold: 256
+        }))
         @server.post('/',(req, res)=>
             @handleRemoteRequest(req, res)
         )
@@ -197,6 +200,11 @@ class RmiService extends EventEmitter
             method.apply(obj, args)
             res.end()
             return
+
+    noSuchMethod : (res)->
+        #FIXME
+        res.end()
+
 
     createSkeleton: (endPoint, obj)->
         @serverObj[endPoint] = obj

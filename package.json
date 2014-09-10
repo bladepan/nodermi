@@ -10,6 +10,7 @@
     "lodash": "~2.4.1",
     "express": "4.9.0",
     "body-parser" : "1.8.1",
+    "compression" : "1.1.0",
     "coffee-script": "1.8.0",
     "weak": "0.3.3"
   },
