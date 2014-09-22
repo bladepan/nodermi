@@ -2,6 +2,8 @@ debug = require('debug')
 
 logger = debug('nodermi:common')
 
+# we certainly do not want to contaminate the original object 
+# when we add rmi properties like __r_id, __r_host ...
 addHiddenField = (obj, key, val) ->
     Object.defineProperty(obj, key,{
         value : val
@@ -46,6 +48,7 @@ for k, v of keyWordsMap
 
 encodeHelper = {}
 
+# create functions to manipulate keywords and their codes
 for keyWord in keyWords
     normalized = keyWord.replace(/_/g,'')
     encodeHelper[normalized] = keyWord

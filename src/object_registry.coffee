@@ -1,18 +1,24 @@
 weak = require('weak')
 
-{addHiddenField} = require('./common')
+{encodeHelper} = require('./common')
 
 
 class ObjectRegistry
     constructor: () ->
         @objects = {}
+        @functions = {}
         @sequence = 0
 
     registObject : (obj)->
-        if not obj.__r_id?
-            # we certainly do not want to contaminate the original object 
-            addHiddenField(obj, '__r_id', @getSequence())
-            @objects[obj.__r_id] = weak(obj)
+        if not encodeHelper.getHiddenRid(obj)?
+            id = @getSequence()
+            encodeHelper.setHiddenRid(obj, id)
+            if typeof obj is 'function'
+                # TODO user strong reference here or the callback functions
+                # would be gabage collected
+                @functions[id] = obj
+            else
+                @objects[id] = weak(obj)
 
     getSequence : ()->
         id = @sequence.toString(35)
@@ -20,10 +26,12 @@ class ObjectRegistry
         return id
 
     getObject: (id)->
+        func = @functions[id]
+        return func if func?
         val = @objects[id]
         if not val?
             delete @objects[id]
-        return weak.get(val)
+        return val
         
     
 

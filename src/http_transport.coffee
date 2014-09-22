@@ -52,7 +52,7 @@ class HttpTransport extends EventEmitter
         @emit('message', req.body, new ResponseWrapper(res))
 
     send : (destination, message, callback)->
-        @fileLogger.log("Send message \n #{JSON.stringify(message)}" if @fileLogger.enabled)
+        @fileLogger.log("Send message \n #{JSON.stringify(message)}") if @fileLogger.enabled
         reqOption = {
             hostname :destination.host
             port : destination.port

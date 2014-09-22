@@ -35,7 +35,7 @@ class Server
             host : encodeHelper.getRhost(message)
             port : encodeHelper.getRport(message)
         }
-        logger("got request #{JSON.stringify(message)}")
+        logger("got request #{JSON.stringify(message)}") if logger.enabled
         switch encodeHelper.getFullMessageType(message)
             when 'retrive'
                 objName = encodeHelper.getObjectName(message)
@@ -59,17 +59,22 @@ class Server
             logger("cannot find obj #{objId}")
             response.write(@_erroMessage("cannot find obj #{objId}"))            
             return
-        decodedArgs = []
-        if args? and args.length>0
-            decoder = new Decoder(@, source)
-            decodedArgs = decoder.decode(args)
-        if funcName?
-            obj[funcName].apply(obj, decodedArgs)
-        else
-            # obj itself is a function
-            obj.apply(emptyObj, decodedArgs)
+        try
+            decodedArgs = []
+            if args? and args.length>0
+                decoder = new Decoder(@, source)
+                decodedArgs = decoder.decode(args)
+            if funcName?
+                obj[funcName].apply(obj, decodedArgs)
+            else
+                # obj itself is a function
+                obj.apply(emptyObj, decodedArgs)
 
-        response.write(@_successMessage())
+            response.write(@_successMessage())
+        catch e
+            response.write(@_erroMessage(e))
+        
+
 
     _createMessage : (type)->
         message = {}
@@ -85,6 +90,9 @@ class Server
         
     _erroMessage : (msg)->
         message = @_createMessage('error')
+        # TODO
+        if util.isError(msg)
+            msg = msg.message
         encodeHelper.setProperties(message, msg)
         return message
 
