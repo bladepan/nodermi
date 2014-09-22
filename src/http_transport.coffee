@@ -5,6 +5,8 @@ express        = require 'express'
 lodash         = require 'lodash'
 debug          = require 'debug'
 
+http.globalAgent.maxSockets = 65535
+
 class ResponseWrapper
     constructor: (@res)->
 
