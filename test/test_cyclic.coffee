@@ -1,9 +1,12 @@
-rminode = require('../src/main')
 lodash = require('lodash')
+debug = require('debug')
+
+rminode = require('../src/main')
 
 serverConf ={
     host:'localhost'
     port : 7000
+    debug : true
 }
 clientConf ={
     host:'localhost'
@@ -21,7 +24,7 @@ serverObj = {
         callback arg1
     funcWithError : (arg1, callback) ->
         if arg1 is 'ok'
-            return callback(null, 'response')
+            return callback(null, 'return for ok')
         callback(new Error('Error processing '+ arg1))
 }
 
@@ -56,7 +59,10 @@ rminode.createRmiService(serverConf,(err, server)->
                 console.log "get from server #{JSON.stringify(val)}, host: #{val.__r_host} port: #{val.__r_port}"
 
             )
-            obj = {}
+            obj = {
+                func1 : ()->
+
+            }
             stub.funcWithCallBack2(obj, (val)->
                 console.log "should get back local object: #{obj is val}"
             )
@@ -64,7 +70,7 @@ rminode.createRmiService(serverConf,(err, server)->
             stub.funcWithError('ok', (err, response)->
                 console.log 'funcWithError : ' + response
             )
-            stub.funcWithError('notok',(err)->
+            stub.funcWithError('notOk', (err)->
                 console.log('funcWithError ' + JSON.stringify(err))
                 )
             #stub.funcWithCallBack(client, (val)->
