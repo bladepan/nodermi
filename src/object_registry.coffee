@@ -1,13 +1,16 @@
 weak = require('weak')
+debug = require('debug')
 
 {encodeHelper} = require('./common')
 
+logger = debug('nodermi:objRegistry')
 
 class ObjectRegistry
     constructor: () ->
         @objects = {}
         @functions = {}
         @sequence = 0
+        @size = 0
 
     registObject : (obj)->
         if not encodeHelper.getHiddenRid(obj)?
@@ -20,7 +23,10 @@ class ObjectRegistry
             else
                 @objects[id] = weak(obj, ()=>
                     delete @objects[id]
-                    )
+                    @size--
+                )
+            @size++
+            logger("ObjectRegistry Holds reference to #{@size} objects") if @sequence%100 is 0
         return null
 
     getSequence : ()->
@@ -34,6 +40,7 @@ class ObjectRegistry
         val = @objects[id]
         if not val? or weak.isDead(val)
             delete @objects[id]
+            @size--
             return null
         return val
         
