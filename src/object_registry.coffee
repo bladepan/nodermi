@@ -18,7 +18,10 @@ class ObjectRegistry
                 # would be gabage collected
                 @functions[id] = obj
             else
-                @objects[id] = weak(obj)
+                @objects[id] = weak(obj, ()=>
+                    delete @objects[id]
+                    )
+        return null
 
     getSequence : ()->
         id = @sequence.toString(35)
@@ -29,8 +32,9 @@ class ObjectRegistry
         func = @functions[id]
         return func if func?
         val = @objects[id]
-        if not val?
+        if not val? or weak.isDead(val)
             delete @objects[id]
+            return null
         return val
         
     
