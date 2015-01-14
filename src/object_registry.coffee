@@ -93,12 +93,6 @@ class ObjectRegistry
         func = @_getFunction(id)
         return func if func?
         val = @objects[id]
-        if val isnt undefined and weak.isDead(val)
-            delete @objects[id]
-            @size--
-            logger("found dead object #{id}")
-            return null
-        
         return val
         
 module.exports = ObjectRegistry
