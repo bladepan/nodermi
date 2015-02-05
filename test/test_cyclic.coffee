@@ -61,10 +61,11 @@ rminode.createRmiService(serverConf,(err, server)->
             )
             obj = {
                 func1 : ()->
+                    console.log("obj's func1")
 
             }
             stub.funcWithCallBack2(obj, (val)->
-                console.log "should get back local object: #{obj is val}"
+                console.log "should get back local object[true]: #{obj is val}"
             )
 
             stub.funcWithError('ok', (err, response)->
