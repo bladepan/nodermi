@@ -1,7 +1,7 @@
 lodash = require('lodash')
 debug = require('debug')
 
-rminode = require('../src/main')
+rminode = require('../lib/main')
 
 serverConf ={
     host:'localhost'

@@ -1,7 +1,7 @@
 lodash = require('lodash')
 debug = require('debug')
 
-ObjectRegistry = require('../src/object_registry')
+ObjectRegistry = require('../lib/object_registry')
 
 
 debugger

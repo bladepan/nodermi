@@ -1,5 +1,5 @@
-Encoder = require('../src/encoding')
-ObjectRegistry = require('../src/object_registry')
+Encoder = require('../lib/encoding')
+ObjectRegistry = require('../lib/object_registry')
 
 server = {
     host : 'somehost'
