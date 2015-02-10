@@ -7,12 +7,12 @@
     "test": "test"
   },
   "dependencies": {
-    "lodash": "~2.4.1",
+    "lodash": "3.1.0",
     "express": "4.9.0",
     "body-parser" : "1.8.1",
-    "coffee-script": "1.8.0",
-    "weak": "0.3.3",
-    "debug" : "2.0.0"
+    "coffee-script": "1.9.0",
+    "weak": "0.3.4",
+    "debug" : "2.1.1"
   },
   "devDependencies": {},
   "scripts": {

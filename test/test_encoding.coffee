@@ -1,4 +1,5 @@
 Encoder = require('../lib/encoding')
+Decoder = require('../lib/decoding')
 ObjectRegistry = require('../lib/object_registry')
 
 server = {
@@ -66,3 +67,21 @@ pojo = { prop1 : 333}
 
 serialized = serializer.encode(pojo)
 console.log JSON.stringify(serialized)
+
+bufferedObj = {
+    prop1 : 33
+    buffer : new Buffer([11,22,124,0,34,0,0,56])
+}
+console.log(bufferedObj)
+
+encoded=serializer.encode(bufferedObj)
+
+decoder = new Decoder(destination, server)
+decoded=decoder.decode(encoded)
+console.log(decoded)
+euqalsResult = (decoded.buffer is bufferedObj.buffer)
+console.log("buffer should not equal after encoding [false] #{euqalsResult}")
+if Buffer.compare?
+    console.log("buffer should have same content [0] #{decoded.buffer.compare(bufferedObj.buffer)}")
+
+
