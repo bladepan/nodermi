@@ -1,7 +1,7 @@
 {
   "name": "nodermi",
   "version": "0.0.0",
-  "description": "rmi for node",
+  "description": "rmi(Remote Method Invocation) for node.js",
   "main": "lib/main.js",
   "directories": {
     "test": "test"
@@ -25,7 +25,10 @@
   "keywords": [
     "rmi",
     "node",
-    "remote"
+    "remote",
+    "node.js",
+    "remote method invocation",
+    "remote object"
   ],
   "author": "Pan",
   "license": "MIT",

@@ -1,36 +1,7 @@
-nodermi
-=======
+// in real life it should be
+// var nodermi = require('nodermi');
+var nodermi = require('../lib/main');
 
-A rmi(Remote Method Invocation) service for node
-
-It is designed to handle complex communication patterns, a group of servers can talk to each other and pass around remote objects.
-
-No messages, just method invocation.
-
-##API
-###Initialize
-option{host, port}; callback(error, rmiService)
-
-```coffeescript
-createRmiService(option, callback)
-```
-###rmi service object : register object
-name : name for this object, client use this name to lookup remote object
-```coffeescript
-createSkeleton(name, object)
-
-```
-
-###rmi service object : lookup object
-option : {host, port, [objName]}
-```coffeescript
-retrieveObj(option, callback)
-```
-
-##Sample
-
-```javascript
-var nodermi = require('nodermi');
 
 var serverConf = {
   host: 'localhost',
@@ -107,4 +78,3 @@ nodermi.createRmiService(serverConf, function(err, server) {
     });
   });
 });
-```

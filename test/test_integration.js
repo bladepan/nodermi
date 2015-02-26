@@ -43,15 +43,15 @@ var rmiNodes = null;
 function testSuit(){
     rmiNodes.serverA.createSkeleton("obj", objA);
 
-    var retriveObjOption = serverA.clone();
-    retriveObjOption.objName = "obj";
+    var retrieveObjOption = serverA.clone();
+    retrieveObjOption.objName = "obj";
 
     async.auto({
         stubA_B : function(next){
-            rmiNodes.serverB.retriveObj(retriveObjOption, next);            
+            rmiNodes.serverB.retrieveObj(retrieveObjOption, next);            
         },
         stubA_C : function(next){
-          rmiNodes.serverC.retriveObj(retriveObjOption, next);              
+          rmiNodes.serverC.retrieveObj(retrieveObjOption, next);              
         },
         testBasic : ['stubA_B', function(next, results){
             testBasic(results.stubA_B, next);
