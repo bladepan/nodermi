@@ -1,17 +1,16 @@
-var ObjectRegistry, debug, func1, func1Id, func2Id, lodash, registry;
+var assert = require("assert");
 
-var assert = require("assert")
+var should = require('chai').should();
+var lodash = require('lodash');
+var debug = require('debug');
 
-lodash = require('lodash');
-debug = require('debug');
-
-ObjectRegistry = require('../lib/object_registry');
+var ObjectRegistry = require('../lib/object_registry');
 var encodeHelper = require('../lib/common').encodeHelper;
 var ServerIdentifier = require('../lib/common').ServerIdentifier;
 
 var logger = debug("rmi:test");
 
-registry = new ObjectRegistry();
+var registry = new ObjectRegistry();
 
 var obj = {};
 
@@ -55,6 +54,7 @@ registry.on("dereference", function(serverIdentifier, sessionId, stubObjId){
         clearTimeout(timeOutId);
     }
 });
+// wait for gc taking effect
 timeOutId = setTimeout(function(){
     assert(executed);
 }, 3000)
@@ -68,7 +68,16 @@ if (gc == null) {
 delete stubHolder.stub;
 gc();
 
-
+describe("ObjectRegistry",function(){
+    it("batch remove reference", function(){
+        var obj = {};
+        var client = new ServerIdentifier("host",888);
+        var objId = registry.registerObject(obj , 'session1', client);
+        should.exist(registry.getObject(objId));
+        registry.removeReferenceFrom([client]);
+        should.not.exist(registry.getObject(objId));
+    });
+});
 
 
 
