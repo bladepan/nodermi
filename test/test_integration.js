@@ -4,7 +4,7 @@ var async = require('async');
 
 var RmiNode = require("../lib/server");
 var ServerIdentifier = require("../lib/common").ServerIdentifier;
-var encodeHelper = require("../lib/common").encodeHelper;
+var stubHelper = require("../lib/common").stubHelper;
 
 var serverA = new ServerIdentifier("localhost", 7000);
 
@@ -97,15 +97,15 @@ function testDeference(stubA_B, stubA_C, callback){
         function(next){
             assert(objA.stubProp != null, "should called setProperty on objA");
             assert(typeof objA.stubProp.func1 === "function");
-            objId = encodeHelper.getHiddenRid(objB.inner);
+            objId = stubHelper.getRemoteId(objB.inner);
             stubA_C.getProperty("stubProp", next);
             
         },
         function(objb_inner_stub, next){
             objC.stubProp = objb_inner_stub;
             assert(typeof objC.stubProp.func1 === "function");
-            assert.equal(encodeHelper.getHiddenSessionId(objC.stubProp),
-                encodeHelper.getHiddenSessionId(objA.stubProp), "the session Id should equal");
+            assert.equal(stubHelper.getRemoteSessionId(objC.stubProp),
+                stubHelper.getRemoteSessionId(objA.stubProp), "the session Id should equal");
             assert(rmiNodes.serverB.objectRegistry.getObject(objId) != null, 
                 "should keep reference to object still referenced.");
 

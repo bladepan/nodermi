@@ -1,0 +1,94 @@
+package nodermi;
+
+enum ObjectType {
+    OBJ  = 1;
+    NULL = 2;
+    ARRAY = 3;
+    FUNCTION = 4;
+    DATE = 5;
+    ERROR = 6;
+    BUFFER = 7;
+    REF = 8;
+    // means this object is in local
+    ORIGIN = 9;
+
+    STRING = 10;
+    INT = 11;
+    FLOAT = 12;
+    BOOL = 13;
+}
+
+enum MessageType {
+    INVOKE = 1;
+    RETRIEVE = 2;
+    PING = 3;
+    REFERENCE = 4;
+    DEREFERENCE = 5;
+    ACK = 6;
+    ERROR = 7;
+}
+
+message ServerIdentifier {
+    required string host = 1;
+    required uint32 port = 2;
+}
+
+message ObjectDescriptor{
+    // optional for date, error, buffer, etc.
+    optional string id = 1;
+    optional string host = 2;
+    optional uint32 port = 3;
+    required ObjectType type = 4;
+    repeated Property properties = 5;
+    optional uint64 dateValue = 6;
+    optional string errorMsg = 7;
+    optional string errorStack = 8;
+    optional bytes buffer = 9;
+    optional string sessionId = 10;
+    // for errors
+    optional string name = 11;
+
+    optional string stringVal = 12;
+    optional int64  intVal = 13;
+    optional double floatVal = 14;
+    repeated ObjectDescriptor arrayElements = 15;
+    optional bool boolVal = 16;
+}
+
+
+
+message Property{
+    // name is optional for array elements
+    optional string name = 1;
+    optional ObjectDescriptor objectValue = 2;
+}
+
+
+
+message ReferenceEntry{
+    required string sessionId = 1;
+    repeated string objectIds = 2;
+}
+
+message Message{
+    optional uint64 sequence = 1;
+    // sessionid is not necessary for messages like reference or dereference
+    optional string sessionId = 2;
+
+    required string host = 3;
+    required uint32 port = 4;
+    required MessageType type = 5;
+    optional string functionId = 6;
+    optional string objId = 7;
+    repeated ObjectDescriptor args = 8;
+    optional string objName = 9;
+    
+    // for reference message
+    repeated ReferenceEntry referenceEntries = 11;
+    // for retrieve object ack
+    optional ObjectDescriptor object = 12;
+
+    optional ObjectDescriptor error = 13;
+
+    optional ServerIdentifier referenceClient = 14;
+}

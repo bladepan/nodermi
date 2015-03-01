@@ -5,7 +5,7 @@ var lodash = require('lodash');
 var debug = require('debug');
 
 var ObjectRegistry = require('../lib/object_registry');
-var encodeHelper = require('../lib/common').encodeHelper;
+var stubHelper = require('../lib/common').stubHelper;
 var ServerIdentifier = require('../lib/common').ServerIdentifier;
 
 var logger = debug("rmi:test");
@@ -35,10 +35,9 @@ var stubHolder = {};
 var stubServer = new ServerIdentifier('a', 1);
 
 stubHolder.stub = {};
-encodeHelper.setHiddenRid(stubHolder.stub, 'kk');
-encodeHelper.setHiddenRport(stubHolder.stub, stubServer.port);
-encodeHelper.setHiddenRhost(stubHolder.stub, stubServer.host);
-encodeHelper.setHiddenSessionId(stubHolder.stub, "session1");
+stubHelper.setRemoteId(stubHolder.stub, 'kk');
+stubHelper.setHostInStub(stubHolder.stub, stubServer);
+stubHelper.setRemoteSessionId(stubHolder.stub, "session1");
 registry.registerStub(stubHolder.stub);
 
 var executed = false;

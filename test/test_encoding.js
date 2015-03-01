@@ -1,8 +1,9 @@
-var Decoder, Encoder, ObjectRegistry, bufferedObj, decoded, decoder, 
-destObj, destination, encoded, euqalsResult, localObj, pojo, remoteObj, 
+var Decoder, Encoder, ObjectRegistry, bufferedObj, decoded, decoder,
+destObj, destination, encoded, euqalsResult, localObj, pojo, remoteObj,
 serialized, serializer, server;
 
 var assert = require("assert");
+var Buffer = require("buffer").Buffer;
 
 var lodash = require('lodash');
 
@@ -10,83 +11,104 @@ Encoder = require('../lib/encoding');
 Decoder = require('../lib/decoding');
 ObjectRegistry = require('../lib/object_registry');
 var ServerIdentifier = require("../lib/common").ServerIdentifier;
-var encodeHelper = require("../lib/common").encodeHelper;
-var keywordStrings = require("../lib/common").keywordStrings;
+var stubHelper = require("../lib/common").stubHelper;
+var Models = require("../lib/common").Models;
 
 // mock server object
 server = new ServerIdentifier("somehost", 111);
 lodash.assign(server, {
   privatePrefix: '_',
-  objectRegistry: new ObjectRegistry()  
+  objectRegistry: new ObjectRegistry()
 });
 
 destination = new ServerIdentifier('otherhost', 222);
 lodash.assign(destination, {
-  objectRegistry: new ObjectRegistry()  
+  objectRegistry: new ObjectRegistry()
 });
 
 serializer = new Encoder(server, destination, "session1");
 var deserializer = new Decoder(destination, server, "session1");
 
+describe("encode", function(){
 
-localObj = {
-  prop1: "kkm",
-  array1: [33, 44],
-  func1: function() {},
-  func2: function() {}
-};
+  var buffer = new Buffer(100);
+  buffer.writeUInt32LE(5889,33);
 
-localObj.array1.push(function() {});
+  localObj = {
+    prop1: "kkm",
+    array1: [33, 44],
+    func1: function() {},
+    func2: function() {},
+    buffer : buffer,
+    date : new Date(),
+    num : 44796,
+    fnum : 44.889999
+  };
 
-// create cyclic reference
-localObj.array1.push(localObj.func2);
-localObj.array1.push(localObj);
+  localObj.array1.push(function() {});
 
-serialized = serializer.encode(localObj);
+  // create cyclic reference
+  localObj.array1.push(localObj.func2);
+  localObj.array1.push(localObj);
 
-// it is okay if it could be serialized by JSON
-var localObjSerialized = JSON.stringify(serialized);
-console.log(localObjSerialized);
+  serialized = serializer.encode(localObj);
 
-assert(encodeHelper.getRid(serialized) != null);
-assert(encodeHelper.getRhost(serialized) == null, 
-    "do not write host when serilizing local objects.");
-assert(encodeHelper.getProperties(serialized).func1 != null);
+  // it is okay if it could be serialized by JSON
+  var localObjSerialized = serialized.toBuffer();
+  console.log("serialized length " + localObjSerialized.length);
 
-// a remote stub object
-remoteObj = {
-  prop1: 'dmc'
-};
-
-encodeHelper.setHiddenRid(remoteObj, 44);
-encodeHelper.setHiddenRhost(remoteObj, 'otherhost');
-encodeHelper.setHiddenRport(remoteObj, 333);
-encodeHelper.setHiddenSessionId(remoteObj, 'mysession');
-
-serialized = serializer.encode(remoteObj);
-
-console.log(JSON.stringify(serialized));
-
-assert.equal(encodeHelper.getRid(serialized), 44);
-assert.equal(encodeHelper.getRhost(serialized), 'otherhost', 
-    "stub object from other host should be serialized with host");
-assert.equal(encodeHelper.getSessionId(serialized), "mysession", 
-  "should serialize the original session id");
-
-assert(lodash.keys(serializer.stubReferences).length >0, "should create stub reference after sending stub to the client");
+  assert(serialized.getId() != null);
+  assert(serialized.getHost() == null,
+      "do not write host when serilizing local objects.");
+  assert(serialized.getProperties() != null);
 
 
-var deserialized = deserializer.decode(serialized);
-assert.equal(encodeHelper.getHiddenRid(deserialized), 44);
-assert.equal(encodeHelper.getHiddenRhost(deserialized), 'otherhost', 
-    "host should be deserialized correctly.");
-assert.equal(encodeHelper.getHiddenSessionId(deserialized), "mysession", 
-  "should decode the session id.");
+  // decode from buffer
+  var deSerialized = deserializer.decode(Models.ObjectDescriptor.decode(localObjSerialized));
 
-pojo = {
-  prop1: 333
-};
+  it("type buffer should be properly deserialilzed", function(){
+    assert.equal(buffer.toString("base64"), deSerialized.buffer.toString("base64"));
+  });
 
-serialized = serializer.encode(pojo);
+  it("date should be properly deserialized", function(){
+    assert.equal(localObj.date.getTime(), deSerialized.date.getTime());
+  });
 
-console.log(JSON.stringify(serialized));
+  it("int should be properly deserialized", function(){
+    assert.equal(localObj.num, deSerialized.num);
+  });
+
+  it("float should be properly deserialized", function(){
+    assert.equal(localObj.fnum, deSerialized.fnum);
+  });
+
+  // a remote stub object
+  remoteObj = {
+    prop1: 'dmc'
+  };
+
+  stubHelper.setRemoteId(remoteObj, "44");
+  stubHelper.setHostInStub(remoteObj, new ServerIdentifier("otherhost", 333));
+  stubHelper.setRemoteSessionId(remoteObj, 'mysession');
+
+
+  serialized = serializer.encode(remoteObj);
+
+
+  assert.equal(serialized.getId(), "44");
+  assert.equal(serialized.getHost(), 'otherhost',
+      "stub object from other host should be serialized with host");
+  assert.equal(serialized.getSessionId(), "mysession",
+    "should serialize the original session id");
+
+  assert(lodash.keys(serializer.stubReferences).length >0, "should create stub reference after sending stub to the client");
+
+
+  var deserialized = deserializer.decode(serialized);
+  assert.equal(stubHelper.getRemoteId(deserialized), "44");
+  assert.equal(stubHelper.getRemoteHost(deserialized), 'otherhost',
+      "host should be deserialized correctly.");
+  assert.equal(stubHelper.getRemoteSessionId(deserialized), "mysession",
+    "should decode the session id.");
+
+});

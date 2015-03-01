@@ -8,11 +8,10 @@
   },
   "dependencies": {
     "lodash": "3.2.0",
-    "express": "4.11.2",
-    "body-parser" : "1.8.1",
     "weak": "0.3.4",
     "debug" : "2.1.1",
-    "async" : "0.9.0"
+    "async" : "0.9.0",
+    "protobufjs" : "3.8.2"
   },
   "devDependencies": {
     "mocha": "2.1.0",

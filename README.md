@@ -7,27 +7,55 @@ It is designed to handle complex communication patterns, a group of servers can 
 
 No messages, just method invocation.
 
-##API
-###Initialize
+## API
+### Initialize
 option{host, port}; callback(error, rmiService)
 
-```coffeescript
-createRmiService(option, callback)
+```javascript
+var nodermi = require('nodermi');
+nodermi.createRmiService(option, callback);
 ```
-###rmi service object : register object
-name : name for this object, client use this name to lookup remote object
-```coffeescript
+
+### rmi service object : register object
+name : name for this object, client use this name to lookup remote object.
+Register entry point to the service you want to expose.
+
+```javascript
 createSkeleton(name, object)
-
 ```
 
-###rmi service object : lookup object
-option : {host, port, [objName]}
-```coffeescript
+### rmi service object : lookup object
+option : {host, port, [objName]}. callback(error, stubObject)
+
+```javascript
 retrieveObj(option, callback)
 ```
 
-##Sample
+## Features
+### Plain Javascript
+You do not to inherit some special class to make your objects work remotely. However, if you want to return something to a remote site, *use callbacks*! Remember, modifications on properties will not be synchronized.
+
+### Automatic Remote Objects
+The objects you get from a remote method call are automatically remote objects.
+The objects you pass as parameters for remote method calls are automatically remote objects seen from the server side. No explicitly registration is needed. You can start from a bootstrap object(created by createSkeleton, fetched by retrieveObj), and create remote objects by calling methods.
+
+There is no distinction between client and server, there is no centralized point, a process could get remote objects from any other process, a process could pass around its local objects or remote references to any other process.
+
+### Smart Reference
+A remote method call will be directly forwarded to the original server where the remote object lives, even the remote object is obtained from some other server. When a "remote" reference is pointing to a local object, the local object is directly used. 
+
+### Garbage Collection
+The remote objects that has no remote or local reference will be garbage collected.
+
+### Serialization Control
+You can control what to send over network by nodermi by add '__r_include', '__r_skip' fields to your objects. By default, properties and methods with '_' prefixed name are omitted. Set '__r_mode' to 'methods' to serialize only methods in that object.
+
+
+## Protocol
+We use protobuf to encode our internal messages, the protocol definition is here [message.proto](lib/message.proto). We use [dcodeIO's protobuf implementationn](https://github.com/dcodeIO/ProtoBuf.js).
+
+
+## Sample
 
 ```javascript
 var nodermi = require('nodermi');
