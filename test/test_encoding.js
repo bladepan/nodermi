@@ -1,35 +1,41 @@
-var Decoder, Encoder, ObjectRegistry, bufferedObj, decoded, decoder,
-destObj, destination, encoded, euqalsResult, localObj, pojo, remoteObj,
-serialized, serializer, server;
-
 var assert = require('chai').assert;
 var should = require('chai').should();
 
 var Buffer = require("buffer").Buffer;
+var EventEmitter = require('events').EventEmitter;
 
 var lodash = require('lodash');
 
-Encoder = require('../lib/encoding');
-Decoder = require('../lib/decoding');
-ObjectRegistry = require('../lib/object_registry');
+var Encoder = require('../lib/encoding');
+var Decoder = require('../lib/decoding');
+var ObjectRegistry = require('../lib/object_registry');
+var ClassRegistry = require('../lib/class_registry');
+var Server = require('../lib/server');
 var ServerIdentifier = require("../lib/common").ServerIdentifier;
 var stubHelper = require("../lib/common").stubHelper;
 var Models = require("../lib/common").Models;
 
-// mock server object
-server = new ServerIdentifier("somehost", 111);
-lodash.assign(server, {
-  privatePrefix: '_',
-  objectRegistry: new ObjectRegistry()
+var source = new ServerIdentifier("somehost", 111);
+var serverOption = lodash.merge({}, source);
+// mock server components
+lodash.assign(serverOption,{
+  transport : new EventEmitter(),
+  failureDetector : new EventEmitter()
 });
 
-destination = new ServerIdentifier('otherhost', 222);
-lodash.assign(destination, {
-  objectRegistry: new ObjectRegistry()
-});
+var server = new Server(serverOption);
 
-serializer = new Encoder(server, destination, "session1");
-var deserializer = new Decoder(destination, server, "session1");
+var destination = new ServerIdentifier('otherhost', 222);
+var destinationServerOption = lodash.merge({}, destination);
+lodash.assign(destinationServerOption, {
+  transport : new EventEmitter(),
+  failureDetector : new EventEmitter()
+});
+var destinationServer = new Server(destinationServerOption);
+
+
+var serializer = new Encoder(server, destination, "session1");
+var deserializer = new Decoder(destinationServer, source, "session1");
 
 describe("encode", function(){
 
@@ -146,6 +152,26 @@ describe("encode", function(){
   it("simple array serialization", function(){
     assert.equal(simpleArray[0].str, deSerializedSimpleArray[0].str,
       "nested property in simple array.");
+  });
+
+  function CustomizedClass(option){
+    this.prop = option.prop;
+    this.toConstructorArguments = function(){
+      return {prop : 33};
+    };
+  }
+  var className = "big class";
+  server.registerClass(className, CustomizedClass);
+  destinationServer.registerClass(className, CustomizedClass);
+
+  var classedObj = new CustomizedClass({prop : 42});
+  var serializedClassedObj = serializer.encode(classedObj);
+  var deSerializedClassedObj = deserializer.decode(serializedClassedObj);
+  
+  it("classed object", function(){
+    assert.equal(deSerializedClassedObj.prop, 33);
+    assert(deSerializedClassedObj instanceof CustomizedClass, 
+      "should de-serialize using class constructor");
   });
 
 });
