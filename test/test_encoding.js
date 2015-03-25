@@ -2,7 +2,9 @@ var Decoder, Encoder, ObjectRegistry, bufferedObj, decoded, decoder,
 destObj, destination, encoded, euqalsResult, localObj, pojo, remoteObj,
 serialized, serializer, server;
 
-var assert = require("assert");
+var assert = require('chai').assert;
+var should = require('chai').should();
+
 var Buffer = require("buffer").Buffer;
 
 var lodash = require('lodash');
@@ -86,7 +88,7 @@ describe("encode", function(){
   remoteObj = {
     prop1: 'dmc'
   };
-
+  // remote stub has hidden ids and host information
   stubHelper.setRemoteId(remoteObj, "44");
   stubHelper.setHostInStub(remoteObj, new ServerIdentifier("otherhost", 333));
   stubHelper.setRemoteSessionId(remoteObj, 'mysession');
@@ -101,7 +103,8 @@ describe("encode", function(){
   assert.equal(serialized.getSessionId(), "mysession",
     "should serialize the original session id");
 
-  assert(lodash.keys(serializer.stubReferences).length >0, "should create stub reference after sending stub to the client");
+  assert(lodash.keys(serializer.stubReferences).length >0, 
+    "should create stub reference after sending stub to the client");
 
 
   var deserialized = deserializer.decode(serialized);
@@ -110,5 +113,39 @@ describe("encode", function(){
       "host should be deserialized correctly.");
   assert.equal(stubHelper.getRemoteSessionId(deserialized), "mysession",
     "should decode the session id.");
+
+  var simpleObj = {
+     date : new Date(),
+     error : new Error("bravo"),
+     str : "someString",
+     obj : {
+      date : new Date(),
+      num : 42
+     }
+  };
+
+  var serializedSimpleObj = serializer.encode(simpleObj);
+  var deSerializedSimpleObj = deserializer.decode(serializedSimpleObj);
+  it("simple object serialization", function(){
+    assert.isNull(serializedSimpleObj.getId(), 
+      "should not assign id to simple object");
+    assert.equal(simpleObj.date.getTime(), deSerializedSimpleObj.date.getTime(), 
+      "date property in simple object.");
+    assert.equal(simpleObj.str, deSerializedSimpleObj.str, 
+      "date property in simple object.");
+    assert.equal(simpleObj.obj.num, deSerializedSimpleObj.obj.num, 
+      "nested property in simple object.");
+  });
+
+  var simpleArray = [
+  {date : new Date(), str: "someString"},
+  44, 33, new Date()];
+
+  var serializedSimpleArray = serializer.encode(simpleArray);
+  var deSerializedSimpleArray = deserializer.decode(serializedSimpleArray);
+  it("simple array serialization", function(){
+    assert.equal(simpleArray[0].str, deSerializedSimpleArray[0].str,
+      "nested property in simple array.");
+  });
 
 });

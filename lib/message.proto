@@ -16,6 +16,10 @@ enum ObjectType {
     INT = 11;
     FLOAT = 12;
     BOOL = 13;
+
+    SIMPLE = 14;
+    SIMPLEARRAY = 15;
+    CLASSED = 16;
 }
 
 enum MessageType {
@@ -53,6 +57,9 @@ message ObjectDescriptor{
     optional double floatVal = 14;
     repeated ObjectDescriptor arrayElements = 15;
     optional bool boolVal = 16;
+    // for type classed
+    optional string className = 17;
+    optional ObjectDescriptor constructorArgs = 18;
 }
 
 
