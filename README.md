@@ -32,16 +32,29 @@ option : {host, port, [objName]}. callback(error, stubObject)
 retrieveObj(option, callback)
 ```
 
+### rmi register class
+name : a unique name for the class. class : the class constructor
+
+You need register class in all the processes, and the objects of the class needs to implement *toConstructorArguments* method to dump the object as constructor arguments.
+```javascript
+registerClass(name, clazz)
+```
+
 ## Features
 ### Plain Javascript
 You do not to inherit from some special class to make your objects work remotely. No IDL is needed, everything is dynamically generated.
 
 
 ### Automatic Remote Objects
-The objects you get from a remote method call are automatically remote objects.
-The objects you pass as parameters for remote method calls are automatically remote objects seen from the server side. No explicitly registration is needed. You can start from a bootstrap object(created by createSkeleton, fetched by retrieveObj), and create remote objects by calling methods.
+The objects(except for pass by value or pass by implementation objects) you pass as arguments for remote method calls are automatically remote objects seen from the server side. No explicitly registration is needed. 
 
-There is no distinction between client and server, there is no centralized point, a process could get remote objects from any other process, a process could pass around its local objects or remote references to any other process.
+There is no centralized point, a process could get remote objects from any other process, a process could pass around its local objects or remote references to any other process.
+
+### Pass by value
+Simple objects like date, error or none cyclic shallow objects that do not have methods are passed by value in remote method invocations.
+
+### Pass by implementation
+You can use *registerClass* API to register classes of objects that need to be passed by implementation. These objects also need to implement a *toConstructorArguments* method to dump their states as constructor arguments.
 
 ### Smart Reference
 A remote method call will be directly forwarded to the original server where the remote object lives, even the remote object is obtained from some other server. When a "remote" reference is pointing to a local object, the local object is directly used. 
