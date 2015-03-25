@@ -1,11 +1,12 @@
 nodermi
 =======
 
-A rmi(Remote Method Invocation) service for node
+A rmi(Remote Method Invocation) service for node.
 
-It is designed to handle complex communication patterns, a group of servers can talk to each other and pass around remote objects.
 
-No messages, just method invocation.
+No messages, just method invocation. Nodermi makes RPC easy: Remote objects have the same methods as the original objects; Parameters passed to a remote method are automatically converted to remote objects on the server side; You can pass (almost) anything to remote methods.
+
+Remote method invocation is by its nature asynchronous. If you want do something after the remote invocation finishes, use a callback function.
 
 ## API
 ### Initialize
@@ -21,10 +22,10 @@ name : name for this object, client use this name to lookup remote object.
 Register entry point to the service you want to expose.
 
 ```javascript
-createSkeleton(name, object)
+registerObject(name, object)
 ```
 
-### rmi service object : lookup object
+### rmi service object : retrieve remote object by name
 option : {host, port, [objName]}. callback(error, stubObject)
 
 ```javascript
@@ -33,7 +34,8 @@ retrieveObj(option, callback)
 
 ## Features
 ### Plain Javascript
-You do not to inherit some special class to make your objects work remotely. However, if you want to return something to a remote site, *use callbacks*! Remember, modifications on properties will not be synchronized.
+You do not to inherit from some special class to make your objects work remotely. No IDL is needed, everything is dynamically generated.
+
 
 ### Automatic Remote Objects
 The objects you get from a remote method call are automatically remote objects.
@@ -46,6 +48,8 @@ A remote method call will be directly forwarded to the original server where the
 
 ### Garbage Collection
 The remote objects that has no remote or local reference will be garbage collected.
+
+### Support Cyclic Objects
 
 ### Serialization Control
 You can control what to send over network by nodermi by add '__r_include', '__r_skip' fields to your objects. By default, properties and methods with '_' prefixed name are omitted. Set '__r_mode' to 'methods' to serialize only methods in that object.
@@ -95,8 +99,8 @@ serverObj2.ref = serverObj2;
 
 nodermi.createRmiService(serverConf, function(err, server) {
   // register objects with names for clients to lookup
-  server.createSkeleton('serverObj', serverObj);
-  server.createSkeleton('serverObj2', serverObj2);
+  server.registerObject('serverObj', serverObj);
+  server.registerObject('serverObj2', serverObj2);
 
   // create client rmi instance after the server rmi service is created
   nodermi.createRmiService(clientConf, function(err, client) {

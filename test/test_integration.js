@@ -41,7 +41,7 @@ var objC = {};
 var rmiNodes = null;
 
 function testSuit(){
-    rmiNodes.serverA.createSkeleton("obj", objA);
+    rmiNodes.serverA.registerObject("obj", objA);
 
     var retrieveObjOption = serverA.clone();
     retrieveObjOption.objName = "obj";

@@ -38,8 +38,8 @@ serverObj2.ref = serverObj2;
 
 nodermi.createRmiService(serverConf, function(err, server) {
   // register objects with names for clients to lookup
-  server.createSkeleton('serverObj', serverObj);
-  server.createSkeleton('serverObj2', serverObj2);
+  server.registerObject('serverObj', serverObj);
+  server.registerObject('serverObj2', serverObj2);
 
   // create client rmi instance after the server rmi service is created
   nodermi.createRmiService(clientConf, function(err, client) {
