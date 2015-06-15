@@ -48,10 +48,10 @@ function testSuit(){
 
     async.auto({
         stubA_B : function(next){
-            rmiNodes.serverB.retrieveObj(retrieveObjOption, next);            
+            rmiNodes.serverB.retrieveObj(retrieveObjOption, next);
         },
         stubA_C : function(next){
-          rmiNodes.serverC.retrieveObj(retrieveObjOption, next);              
+            rmiNodes.serverC.retrieveObj(retrieveObjOption, next);
         },
         testBasic : ['stubA_B', function(next, results){
             testBasic(results.stubA_B, next);
@@ -59,13 +59,12 @@ function testSuit(){
         testDeference : ['testBasic', 'stubA_C', function(next, results){
             testDeference(results.stubA_B, results.stubA_C, next);
         }]
-        }, 
+        },
         function(err){
             if (err) {
                 console.log(err);
-            }    
+            }
             assert(err==null, "should not have error");
-
             closeNodes(rmiNodes);
         }
     );
@@ -85,58 +84,74 @@ function testBasic(stubA_B, callback){
 }
 
 // reference to the original object should only be deleted if no one holds reference.
-// we make objb.inner to be hold by serverA, and serverC get hold reference to it
-// through serverA, then we delete reference from both serverA and serverC, and check
+// we make objb.inner to be hold by serverA, and serverC by some RMI calls,
+// then we delete reference from both serverA and serverC, and check
 // if the reference is removed from serverB
 function testDeference(stubA_B, stubA_C, callback){
     var objId = null;
+    console.log("testing dereference");
     async.waterfall([
         function(next){
-            stubA_B.setProperty("stubProp", objB.inner, next);        
+            // objA.stubProp is set as a stub referencing to objB.inner
+            stubA_B.setProperty("stubProp", objB.inner, next);
+            objId = stubHelper.getRemoteId(objB.inner);
+            console.log("objB.inner id is " + objId)
         },
         function(next){
             assert(objA.stubProp != null, "should called setProperty on objA");
             assert(typeof objA.stubProp.func1 === "function");
-            objId = stubHelper.getRemoteId(objB.inner);
+            // get objA.stubProp via rmi on serverC
             stubA_C.getProperty("stubProp", next);
-            
         },
         function(objb_inner_stub, next){
+            // objb_inner_stub is a stub referencing to objB.inner
             objC.stubProp = objb_inner_stub;
             assert(typeof objC.stubProp.func1 === "function");
             assert.equal(stubHelper.getRemoteSessionId(objC.stubProp),
                 stubHelper.getRemoteSessionId(objA.stubProp), "the session Id should equal");
-            assert(rmiNodes.serverB.objectRegistry.getObject(objId) != null, 
+            assert(rmiNodes.serverB.objectRegistry.getObject(objId) != null,
                 "should keep reference to object still referenced.");
 
             next();
         },
         function(next){
-            console.log("delete reference from objA");
+            console.log("delete reference from objA " + stubHelper.getRemoteId(objA.stubProp) + "@" +
+                stubHelper.getHostFromStub(objA.stubProp));
             delete objA.stubProp;
+            console.log("after delete objA.stubProp " + objA.stubProp)
             //trigger dereference message
-            gc(); gc(); gc();
-            setTimeout(next, 1000);
+            forceGc(next);
         },
         function(next){
-            assert(rmiNodes.serverB.objectRegistry.getObject(objId) != null, 
+            assert(rmiNodes.serverB.objectRegistry.getObject(objId) != null,
                 "should keep reference to object still referenced.");
             console.log("delete reference from objC");
             delete objC.stubProp;
             //trigger dereference message
-            gc(); gc(); gc();
-            setTimeout(next, 1000);
+            forceGc(next);
         },
         function(next){
-            // we hope it is already dereferenced on objB
-            assert(rmiNodes.serverB.objectRegistry.getObject(objId) == null, 
-                "should not keep reference if no one reference it.");
+            // hope it is already dereferenced on serverB. This rarely works, see issue
+            // https://github.com/bladepan/nodermi/issues/17
+            assert(rmiNodes.serverB.objectRegistry.getObject(objId) == null,
+                "should not keep reference if no one references it.");
             next();
         }
     ], callback);
-    
 
+}
 
+function forceGc(callback){
+    gc(); gc(); gc();
+    var func = function(next){
+        gc(); gc(); gc();
+        setTimeout(next, 1500);
+    };
+    async.series([
+        func, func, func, func, func
+    ],function(){
+        callback();
+    });
 }
 
 function closeNodes(rmiNodes){

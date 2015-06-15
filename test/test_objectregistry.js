@@ -34,6 +34,7 @@ assert.equal(registry.getObject(objId) , null, "should not keep the object if no
 var stubHolder = {};
 var stubServer = new ServerIdentifier('a', 1);
 
+// create and register a fake stub
 stubHolder.stub = {};
 stubHelper.setRemoteId(stubHolder.stub, 'kk');
 stubHelper.setHostInStub(stubHolder.stub, stubServer);
@@ -42,9 +43,10 @@ registry.registerStub(stubHolder.stub);
 
 var executed = false;
 var timeOutId = null;
+// it should get executed once we removed reference to the fake stub
 registry.on("dereference", function(serverIdentifier, sessionId, stubObjId){
     executed = true;
-    assert(serverIdentifier.equals(stubServer), "the deferenced stub server is wrong " + serverIdentifier);
+    assert(serverIdentifier.equals(stubServer), "the dereferenced stub server is wrong " + serverIdentifier);
     assert.equal(stubObjId, 'kk');
     assert.equal(sessionId, 'session1');
     assert.equal(lodash.keys(registry.stubs).length, 0);
