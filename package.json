@@ -1,6 +1,6 @@
 {
   "name": "nodermi",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "RMI(Remote Method Invocation) framework for node.js",
   "main": "lib/main.js",
   "directories": {
