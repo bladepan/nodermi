@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "lodash": "3.9.3",
-    "weak": "0.4.1",
+    "weak": ">=1.0.0",
     "debug" : "2.2.0",
     "async" : "1.2.1",
     "protobufjs" : "3.8.2"
